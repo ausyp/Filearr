@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Live Activity</h2>
+    <p>System is running. Watching <code>/input</code>.</p>
+
+    <h3>Recent Processed Files</h3>
+    {% if recent_files %}
+    <table>
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Movie</th>
+                <th>Language</th>
+                <th>Quality</th>
+                <th>Action</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in recent_files %}
+            <tr>
+                <td>{{ file.filename }}</td>
+                <td>{{ file.movie_name }} ({{ file.year }})</td>
+                <td>{{ file.language }}</td>
+                <td><span class="status-badge status-warning">{{ file.quality_score }}</span></td>
+                <td>{{ file.action }}</td>
+                <td>{{ file.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No files processed yet.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Rejected / Quarantine</h3>
+    {% if rejected_files %}
+    <table>
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Reason</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in rejected_files %}
+            <tr>
+                <td>{{ file.filename }}</td>
+                <td><span class="status-badge status-danger">{{ file.reason }}</span></td>
+                <td>{{ file.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No rejected files.</p>
+    {% endif %}
+</div>
+{% endblock %}

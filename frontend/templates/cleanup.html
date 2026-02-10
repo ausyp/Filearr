@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Cleanup{% endblock %}
+{% block header %}Cleanup & Reorganise{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h3>Manual Cleanup</h3>
+    <form id="cleanupForm">
+        <label for="origin">Origin Folder:</label><br>
+        <input type="text" id="origin" name="origin" value="/output/malayalam-movies"
+            style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
+
+        <label for="dest">Destination Folder:</label><br>
+        <input type="text" id="dest" name="dest" value="/output/malayalam-movies"
+            style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
+
+        <input type="checkbox" id="dry_run" name="dry_run" checked>
+        <label for="dry_run">Dry Run (Log only)</label><br><br>
+
+        <button type="button" class="btn btn-primary" onclick="startCleanup()">Start Cleanup</button>
+    </form>
+    <div id="status" style="margin-top: 15px;"></div>
+</div>
+
+<script>
+    async function startCleanup() {
+        const origin = document.getElementById('origin').value;
+        const dest = document.getElementById('dest').value;
+        const dryRun = document.getElementById('dry_run').checked;
+
+        document.getElementById('status').innerText = "Starting cleanup...";
+
+        try {
+            const response = await fetch(`/api/cleanup/start?origin=${encodeURIComponent(origin)}&dest=${encodeURIComponent(dest)}&dry_run=${dryRun}`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            document.getElementById('status').innerText = `Status: ${data.status} (Mode: ${data.mode})`;
+        } catch (e) {
+            document.getElementById('status').innerText = "Error starting cleanup: " + e;
+        }
+    }
+</script>
+{% endblock %}

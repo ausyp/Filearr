@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  mediamind:
+    build: .
+    container_name: mediamind
+    restart: unless-stopped
+    ports:
+      - "8090:8000"
+    volumes:
+      - /mnt/downloads:/input
+      - /mnt/media:/output
+      - ./data:/data
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - INPUT_DIR=/input
+      - OUTPUT_DIR=/output
+      - DATA_DIR=/data
