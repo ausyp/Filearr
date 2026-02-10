@@ -1,14 +1,14 @@
 import tmdbsimple as tmdb
 from guessit import guessit
-from backend.config.settings import settings
+from backend.core.config_service import config_service
 import logging
 
 logger = logging.getLogger(__name__)
 
-if settings.TMDB_API_KEY:
-    tmdb.API_KEY = settings.TMDB_API_KEY
-
 def get_movie_metadata(filename):
+    tmdb_key = config_service.get_setting("TMDB_API_KEY")
+    if tmdb_key:
+        tmdb.API_KEY = tmdb_key
     guess = guessit(filename)
     title = guess.get('title')
     year = guess.get('year')

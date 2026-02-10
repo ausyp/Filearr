@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+{% block header %}System Settings{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h3>Configuration</h3>
+    <form action="/api/settings/save" method="POST">
+        <label for="TMDB_API_KEY">TMDB API Key:</label><br>
+        <input type="text" id="TMDB_API_KEY" name="TMDB_API_KEY" value="{{ config.get('TMDB_API_KEY') or '' }}"
+            style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
+
+        <label for="INPUT_DIR">Input Directory (Host Path mapped to container):</label><br>
+        <input type="text" id="INPUT_DIR" name="INPUT_DIR" value="{{ config.get('INPUT_DIR') or '/input' }}"
+            style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
+        <small>Note: If you change this, ensure the Docker volume is mounted correctly. Restart required for Watcher
+            changes.</small><br><br>
+
+        <label for="OUTPUT_DIR">Output Directory:</label><br>
+        <input type="text" id="OUTPUT_DIR" name="OUTPUT_DIR" value="{{ config.get('OUTPUT_DIR') or '/output' }}"
+            style="width: 100%; padding: 8px; margin-bottom: 20px;"><br>
+
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+
+    {% if request.query_params.get('saved') %}
+    <div style="margin-top: 20px; color: green; font-weight: bold;">
+        Settings saved successfully! You may need to restart the container for some changes to take effect.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

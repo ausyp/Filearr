@@ -1,6 +1,6 @@
-# MediaMind - Intelligent Movie Ingestion & Cleanup
+# Filearr - Intelligent Movie Ingestion & Cleanup
 
-MediaMind is a comprehensive, Dockerized application for automating movie organization, metadata fetching, and quality management. It is designed to work alongside Radarr and Plex.
+Filearr is a comprehensive, Dockerized application for automating movie organization, metadata fetching, and quality management. It is designed to work alongside Radarr and Plex.
 
 ## Features
 
@@ -57,7 +57,7 @@ MediaMind is a comprehensive, Dockerized application for automating movie organi
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Watchdog.
 - **Frontend**: Jinja2 Templates, HTML/CSS.
-- **Database**: SQLite (stored in `./data/mediamind.db`).
+- **Database**: SQLite (stored in `./data/filearr.db`).
 
 ## License
 

@@ -1,20 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediaMind - {% block title %}Dashboard{% endblock %}</title>
+    <title>Filearr - {% block title %}Dashboard{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
+
 <body>
 
     <div class="sidebar">
         <div style="padding: 0 25px; margin-bottom: 20px;">
-            <h2 style="color: white;">MediaMind</h2>
+            <h2 style="color: white;">Filearr</h2>
         </div>
         <a href="/">Dashboard</a>
         <a href="/cleanup">Cleanup & Reorganise</a>
-        <a href="#">Settings</a>
+        <a href="/settings">Settings</a>
     </div>
 
     <div class="main-content">
@@ -27,4 +29,5 @@
 
     {% block scripts %}{% endblock %}
 </body>
+
 </html>

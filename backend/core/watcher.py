@@ -1,10 +1,7 @@
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from backend.core.processor import process_file
-from backend.config.settings import settings
-import time
-from loguru import logger
-import os
+from backend.core.config_service import config_service
 
 class Handler(FileSystemEventHandler):
     def on_created(self, event):
@@ -26,21 +23,21 @@ class Handler(FileSystemEventHandler):
                 logger.error(f"Error processing moved file {event.dest_path}: {e}")
 
 def start_watchers():
-    if not os.path.exists(settings.INPUT_DIR):
-        logger.warning(f"Input directory {settings.INPUT_DIR} does not exist. Watcher not started for input.")
+    input_dir = config_service.get_setting("INPUT_DIR")
+    
+    if not input_dir or not os.path.exists(input_dir):
+        logger.warning(f"Input directory {input_dir} does not exist or not set. Watcher not started for input.")
         return
 
     observer = Observer()
     event_handler = Handler()
     
-    logger.info(f"Starting watcher on {settings.INPUT_DIR}")
-    observer.schedule(event_handler, settings.INPUT_DIR, recursive=True)
-    
-    # You might want to watch other directories too based on config
-    # if settings.WATCH_MOVIES:
-    #     observer.schedule(event_handler, f"{settings.OUTPUT_DIR}/movies", recursive=True)
-    
-    observer.start()
+    logger.info(f"Starting watcher on {input_dir}")
+    try:
+        observer.schedule(event_handler, input_dir, recursive=True)
+        observer.start()
+    except Exception as e:
+        logger.error(f"Failed to start watcher on {input_dir}: {e}")
     
     # The observer runs in a separate thread, so we don't need a while loop here 
     # if this function is called from a non-blocking context (like FastAPI startup event)

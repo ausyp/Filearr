@@ -1,8 +1,8 @@
 import os
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    APP_NAME: str = "MediaMind"
+    APP_NAME: str = "Filearr"
     DEBUG: bool = True
     
     # Paths
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     TMDB_API_KEY: str = os.getenv("TMDB_API_KEY", "")
     
     # Database
-    DATABASE_URL: str = f"sqlite:///{DATA_DIR}/mediamind.db"
+    DATABASE_URL: str = f"sqlite:///{DATA_DIR}/filearr.db"
     
     # Clean up settings
     TRASH_DIR: str = f"{OUTPUT_DIR}/.trash"

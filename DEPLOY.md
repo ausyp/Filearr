@@ -29,6 +29,8 @@ Ensure the repository structure is:
     - add `OUTPUT_DIR`: path on host (e.g., `/c/Users/reach/Media`)
 8.  Click **Deploy the stack**.
 
+> **Note**: You can also configure `TMDB_API_KEY` and directory paths directly in the application's **Settings** page after deployment.
+
 ## Method 2: The "Local CLI" Way (Easiest if running locally)
 If Portainer is running on the same machine as your code, you can start the stack via command line, and Portainer will automatically detect and manage it.
 

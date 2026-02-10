@@ -1,9 +1,9 @@
 version: "3.9"
 
 services:
-  mediamind:
+  filearr:
     build: .
-    container_name: mediamind
+    container_name: filearr
     restart: unless-stopped
     ports:
       - "8090:8000"

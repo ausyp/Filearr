@@ -6,25 +6,28 @@ import logging
 from loguru import logger
 import sys
 
+from backend.api.settings import router as settings_router
+
 # Configure logging
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
-app = FastAPI(title="MediaMind", description="Intelligent Movie Ingestion & Cleanup Engine")
+app = FastAPI(title="Filearr", description="Intelligent Movie Ingestion & Cleanup Engine")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
 # Include API routes
 app.include_router(router)
+app.include_router(settings_router)
 
 @app.on_event("startup")
 async def startup():
-    logger.info("Starting MediaMind backend...")
+    logger.info("Starting Filearr backend...")
     from backend.db.database import init_db
     init_db()
     start_watchers()
-    logger.info("MediaMind started successfully.")
+    logger.info("Filearr started successfully.")
 
 if __name__ == "__main__":
     import uvicorn
