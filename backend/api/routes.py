@@ -50,6 +50,12 @@ async def cleanup_page(request: Request):
         "config": config
     })
 
+@router.get("/api/debug/dump_config")
+async def debug_dump_config():
+    """Diagnostic endpoint to see the full config object"""
+    from backend.core.config_service import config_service
+    return config_service.get_all_settings()
+
 @router.post("/api/cleanup/start")
 async def start_cleanup(
     background_tasks: BackgroundTasks,

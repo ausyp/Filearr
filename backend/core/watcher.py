@@ -104,23 +104,19 @@ class WatcherManager:
             self.observer.schedule(self.event_handler, input_dir, recursive=True)
             self.observer.start()
             self.is_running = True
+            
+            # Perform initial scan for existing files
+            self.initial_scan(input_dir)
+            
         except Exception as e:
             logger.error(f"Failed to start watcher on {input_dir}: {e}")
 
     def stop(self):
-        if not self.is_running or not self.observer:
-            logger.info("Watcher is not running.")
-            return
-
-        logger.info(f"Stopping watcher on {self.watched_path}")
-        try:
+        if self.observer:
+            logger.info(f"Stopping watcher on {self.watched_path}")
             self.observer.stop()
-            self.observer.join(timeout=2)
-            self.observer = None
+            self.observer.join()
             self.is_running = False
-            self.watched_path = None
-        except Exception as e:
-            logger.error(f"Error stopping watcher: {e}")
 
     def restart(self):
         logger.info("Restarting watcher...")
@@ -132,6 +128,45 @@ class WatcherManager:
             "is_running": self.is_running,
             "watched_path": self.watched_path
         }
+
+    def initial_scan(self, directory: str):
+        """Scan directory for existing files that haven't been processed"""
+        logger.info(f"Starting initial scan of {directory}...")
+        count = 0
+        
+        db = SessionLocal()
+        try:
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    # Filter for known media extensions
+                    if not file.lower().endswith(('.mkv', '.mp4', '.avi', '.m4v', '.ts')):
+                        continue
+                        
+                    file_path = os.path.join(root, file)
+                    
+                    # Check if already processed (exists in WatcherLog)
+                    exists = db.query(WatcherLog).filter(WatcherLog.file_path == file_path).first()
+                    if not exists:
+                        logger.info(f"Initial scan found new file: {file_path}")
+                        try:
+                            # Log as detected
+                            log_watcher_event("scan", file_path, "detected")
+                            
+                            # Process it
+                            process_file(file_path)
+                            
+                            # Log as processed
+                            log_watcher_event("scan", file_path, "processed")
+                            count += 1
+                        except Exception as e:
+                            logger.error(f"Failed to process {file_path} during initial scan: {e}")
+                            log_watcher_event("scan", file_path, "failed", str(e))
+                            
+            logger.info(f"Initial scan complete. Processed {count} new files.")
+        except Exception as e:
+            logger.error(f"Initial scan failed: {e}")
+        finally:
+            db.close()
 
 watcher_manager = WatcherManager()
 
