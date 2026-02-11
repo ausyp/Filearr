@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+import os
+from backend.core.config_service import config_service
 
 class Decision(BaseModel):
     action: str  # 'move', 'replace', 'reject', 'ignore'
@@ -6,31 +8,34 @@ class Decision(BaseModel):
     reason: str
 
 def decide(file_path, language, quality_score, is_cam, tmdb_info, existing_file=None):
+    config = config_service.get_all_settings()
+    
     if is_cam:
+        rejected_dir = config.get("REJECTED_DIR", "/media/movies/.rejected")
         return Decision(
             action="reject",
-            destination="/output/.rejected",
+            destination=os.path.join(rejected_dir, os.path.basename(file_path)),
             reason="CAM/TS file detected"
         )
     
-    destination_root = "/output/movies"
+    # Dynamic routing based on language
+    destination_root = config.get("MOVIES_DIR", "/media/movies")
+    
     if language == "mal":
-        destination_root = "/output/malayalam-movies"
-        
-    # Construct final path: /output/movies/Title (Year)/Title (Year).ext
+        destination_root = config.get("MALAYALAM_DIR", "/media/movies/malayalam")
+    
+    # Construct final path: Destination/Title (Year)/Title (Year).ext
     title = tmdb_info.get('title', 'Unknown')
     year = tmdb_info.get('year', 'Unknown')
     ext = file_path.split('.')[-1]
     
-    final_dir = f"{destination_root}/{title} ({year})"
-    final_path = f"{final_dir}/{title} ({year}).{ext}"
+    folder_name = f"{title} ({year})"
+    file_name = f"{title} ({year}).{ext}"
     
-    if existing_file:
-        # Compare logic
-        pass # To be implemented fully with DB check
-        
+    final_path = os.path.join(destination_root, folder_name, file_name)
+    
     return Decision(
         action="move",
         destination=final_path,
-        reason="New processed file"
+        reason=f"Processed (Language: {language})"
     )

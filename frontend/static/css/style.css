@@ -181,3 +181,12 @@ th {
 .btn-secondary:hover {
     background-color: #5a6268;
 }
+
+/* Folder Browser Items */
+.folder-item {
+    transition: background-color 0.2s;
+}
+
+.folder-item:hover {
+    background-color: #f0f0f0 !important;
+}

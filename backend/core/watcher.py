@@ -72,22 +72,63 @@ class Handler(FileSystemEventHandler):
                 logger.error(error_msg)
                 log_watcher_event("moved", event.dest_path, "failed", str(e))
 
-def start_watchers():
-    input_dir = config_service.get_setting("INPUT_DIR")
-    
-    if not input_dir or not os.path.exists(input_dir):
-        logger.warning(f"Input directory {input_dir} does not exist or not set. Watcher not started for input.")
-        return
+class WatcherManager:
+    def __init__(self):
+        self.observer = None
+        self.watched_path = None
+        self.is_running = False
 
-    observer = Observer()
-    event_handler = Handler()
-    
-    logger.info(f"Starting watcher on {input_dir}")
-    try:
-        observer.schedule(event_handler, input_dir, recursive=True)
-        observer.start()
-    except Exception as e:
-        logger.error(f"Failed to start watcher on {input_dir}: {e}")
-    
-    # The observer runs in a separate thread, so we don't need a while loop here 
-    # if this function is called from a non-blocking context (like FastAPI startup event)
+    def start(self):
+        if self.is_running:
+            logger.info("Watcher is already running.")
+            return
+
+        input_dir = config_service.get_setting("INPUT_DIR")
+        
+        if not input_dir or not os.path.exists(input_dir):
+            logger.warning(f"Input directory {input_dir} does not exist or not set. Watcher not started.")
+            return
+
+        self.observer = Observer()
+        self.event_handler = Handler()
+        self.watched_path = input_dir
+        
+        logger.info(f"Starting watcher on {input_dir}")
+        try:
+            self.observer.schedule(self.event_handler, input_dir, recursive=True)
+            self.observer.start()
+            self.is_running = True
+        except Exception as e:
+            logger.error(f"Failed to start watcher on {input_dir}: {e}")
+
+    def stop(self):
+        if not self.is_running or not self.observer:
+            logger.info("Watcher is not running.")
+            return
+
+        logger.info(f"Stopping watcher on {self.watched_path}")
+        try:
+            self.observer.stop()
+            self.observer.join(timeout=2)
+            self.observer = None
+            self.is_running = False
+            self.watched_path = None
+        except Exception as e:
+            logger.error(f"Error stopping watcher: {e}")
+
+    def restart(self):
+        logger.info("Restarting watcher...")
+        self.stop()
+        self.start()
+
+    def get_status(self):
+        return {
+            "is_running": self.is_running,
+            "watched_path": self.watched_path
+        }
+
+watcher_manager = WatcherManager()
+
+def start_watchers():
+    """Legacy helper for app startup"""
+    watcher_manager.start()

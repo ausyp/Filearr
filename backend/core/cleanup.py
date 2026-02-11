@@ -78,11 +78,11 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                 processed_count += 1
                 
                 try:
-                    # Detect language from filename
-                    detected_lang = detect_language(file)
+                    # Detect language code
+                    lang_code = detect_language(file_path)
                     
                     # Determine destination based on language
-                    if detected_lang == "malayalam":
+                    if lang_code == "mal":
                         dest_dir = malayalam_dest
                     else:
                         dest_dir = english_dest
@@ -90,8 +90,8 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                     dest_path = os.path.join(dest_dir, file)
                     
                     if dry_run:
-                        logger.info(f"[DRY RUN] Would move {file_path} to {dest_path} (Language: {detected_lang})")
-                        log_cleanup("dry_run", file_path, dest_path, "success", f"Language: {detected_lang}")
+                        logger.info(f"[DRY RUN] Would move {file_path} to {dest_path} (Lang Code: {lang_code})")
+                        log_cleanup("dry_run", file_path, dest_path, "success", f"Language Code: {lang_code}")
                     else:
                         # Ensure destination directory exists
                         os.makedirs(dest_dir, exist_ok=True)
@@ -100,7 +100,7 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                         import shutil
                         shutil.move(file_path, dest_path)
                         logger.info(f"Moved {file_path} to {dest_path}")
-                        log_cleanup("move", file_path, dest_path, "success", f"Language: {detected_lang}")
+                        log_cleanup("move", file_path, dest_path, "success", f"Language Code: {lang_code}")
                         moved_count += 1
                         
                 except Exception as e:

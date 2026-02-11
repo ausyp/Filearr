@@ -1,7 +1,7 @@
 import shutil
 import os
 import logging
-from backend.config.settings import settings
+from backend.core.config_service import config_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,11 @@ def rejection_move(src, reason):
     """
     Moves a file to the rejected folder.
     """
+    config = config_service.get_all_settings()
+    rejected_dir = config.get("REJECTED_DIR", "/media/movies/.rejected")
+    
     filename = os.path.basename(src)
-    dest = os.path.join(settings.REJECTED_DIR, filename)
+    dest = os.path.join(rejected_dir, filename)
     logger.warning(f"Rejecting {filename}: {reason}")
     return move_file(src, dest)
 
@@ -37,8 +40,10 @@ def trash_move(src):
     """
     Moves a file to the trash folder.
     """
+    config = config_service.get_all_settings()
+    trash_dir = config.get("TRASH_DIR", "/media/movies/.trash")
+    
     filename = os.path.basename(src)
-    # Organize trash by date could be an enhancement
-    dest = os.path.join(settings.TRASH_DIR, filename)
+    dest = os.path.join(trash_dir, filename)
     logger.info(f"Trashing {filename}")
     return move_file(src, dest)

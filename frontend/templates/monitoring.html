@@ -13,6 +13,15 @@
         <div class="stat-box">
             <div class="stat-label">Watcher Status</div>
             <div class="stat-value" id="watcherStatus">Loading...</div>
+            <div id="watchedPath" style="font-size: 11px; color: #666; margin-top: 5px; word-break: break-all;"></div>
+            <div style="margin-top: 10px; display: flex; gap: 5px; justify-content: center;">
+                <button onclick="controlWatcher('start')" class="btn"
+                    style="padding: 4px 8px; font-size: 11px;">Start</button>
+                <button onclick="controlWatcher('stop')" class="btn btn-secondary"
+                    style="padding: 4px 8px; font-size: 11px;">Stop</button>
+                <button onclick="controlWatcher('restart')" class="btn"
+                    style="padding: 4px 8px; font-size: 11px;">Restart</button>
+            </div>
         </div>
         <div class="stat-box">
             <div class="stat-label">Processed Today</div>
@@ -127,12 +136,32 @@
             document.getElementById('ignoredToday').textContent = data.ignored_today;
             document.getElementById('errorsToday').textContent = data.errors_today;
 
+            const watchedPathDiv = document.getElementById('watchedPath');
+            if (data.watched_path) {
+                watchedPathDiv.textContent = `Path: ${data.watched_path}`;
+            } else {
+                watchedPathDiv.textContent = '';
+            }
+
             if (data.last_activity) {
                 const lastTime = new Date(data.last_activity);
                 document.getElementById('lastActivity').textContent = lastTime.toLocaleTimeString();
             }
         } catch (e) {
             console.error('Error loading stats:', e);
+        }
+    }
+
+    async function controlWatcher(action) {
+        if (!confirm(`Are you sure you want to ${action} the watcher?`)) return;
+        try {
+            const response = await fetch(`/api/monitoring/watcher/${action}`, { method: 'POST' });
+            const data = await response.json();
+            console.log(`Watcher ${action}:`, data);
+            loadStats();
+        } catch (e) {
+            console.error(`Error ${action}ing watcher:`, e);
+            alert(`Failed to ${action} watcher`);
         }
     }
 

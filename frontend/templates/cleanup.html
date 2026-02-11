@@ -6,60 +6,78 @@
 {% block content %}
 <div class="card">
     <h3>Manual Cleanup</h3>
+    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+        Use this tool to reorganize files already in your library. It uses your current settings as defaults.
+    </p>
+
     <form id="cleanupForm">
-        <label for="origin">Origin Folder:</label><br>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <input type="text" id="origin" name="origin" value="/media/downloads" style="flex: 1; padding: 8px;">
-            <button type="button" class="btn btn-secondary" onclick="browseOrigin()">Browse...</button>
+        <label for="origin">Watch Folder (Scan for cleanup):</label><br>
+        <div class="input-group">
+            <input type="text" id="origin" name="origin" value="{{ config.INPUT_DIR }}" placeholder="/media/downloads">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('origin')">Browse...</button>
         </div>
 
-        <h4 style="margin-top: 20px;">Destination Folders</h4>
+        <h4 style="margin-top: 25px;">Destination Folders</h4>
 
-        <label for="malayalam_dest">Malayalam Movies:</label><br>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <input type="text" id="malayalam_dest" name="malayalam_dest" value="/media/movies/malayalam-movies"
-                style="flex: 1; padding: 8px;">
-            <button type="button" class="btn btn-secondary" onclick="browseMalayalam()">Browse...</button>
+        <label for="malayalam_dest">Malayalam Movies Destination:</label><br>
+        <div class="input-group">
+            <input type="text" id="malayalam_dest" name="malayalam_dest" value="{{ config.MALAYALAM_DIR }}"
+                placeholder="/media/movies/malayalam">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('malayalam_dest')">Browse...</button>
         </div>
 
-        <label for="english_dest">English Movies:</label><br>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <input type="text" id="english_dest" name="english_dest" value="/media/movies/english-movies"
-                style="flex: 1; padding: 8px;">
-            <button type="button" class="btn btn-secondary" onclick="browseEnglish()">Browse...</button>
+        <label for="english_dest">English Movies Destination (Default):</label><br>
+        <div class="input-group">
+            <input type="text" id="english_dest" name="english_dest" value="{{ config.MOVIES_DIR }}"
+                placeholder="/media/movies">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('english_dest')">Browse...</button>
         </div>
 
-        <div style="margin-top: 20px;">
+        <div
+            style="margin-top: 20px; padding: 15px; background: #fffde7; border-left: 4px solid #fbc02d; border-radius: 4px;">
             <input type="checkbox" id="dry_run" name="dry_run" checked>
-            <label for="dry_run">Dry Run (Log only)</label><br><br>
+            <label for="dry_run" style="font-weight: bold; cursor: pointer;">Dry Run (Log only - Recommended
+                first)</label>
+            <p style="margin: 5px 0 0 25px; font-size: 13px; color: #555;">No files will be moved. View potential
+                changes in the Cleanup Logs on the Dashboard.</p>
         </div>
 
-        <button type="button" class="btn btn-primary" onclick="startCleanup()">Start Cleanup</button>
+        <div style="margin-top: 30px;">
+            <button type="button" class="btn btn-primary" onclick="startCleanup()" id="startBtn"
+                style="padding: 12px 30px;">Start Cleanup Operation</button>
+        </div>
     </form>
 
-    <div id="status" style="margin-top: 20px; padding: 15px; border-radius: 5px; display: none;"></div>
+    <div id="status" style="margin-top: 25px; padding: 20px; border-radius: 8px; display: none; line-height: 1.6;">
+    </div>
 </div>
 
+<style>
+    .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .input-group input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
 <script src="/static/folder-browser.js"></script>
 <script>
-    function browseOrigin() {
-        const currentPath = document.getElementById('origin').value || '/media/downloads';
-        folderBrowser.open(currentPath, (selectedPath) => {
-            document.getElementById('origin').value = selectedPath;
-        });
-    }
+    function browseFolder(inputId) {
+        const input = document.getElementById(inputId);
+        const startPath = input.value || '/media';
 
-    function browseMalayalam() {
-        const currentPath = document.getElementById('malayalam_dest').value || '/media/movies';
-        folderBrowser.open(currentPath, (selectedPath) => {
-            document.getElementById('malayalam_dest').value = selectedPath;
-        });
-    }
-
-    function browseEnglish() {
-        const currentPath = document.getElementById('english_dest').value || '/media/movies';
-        folderBrowser.open(currentPath, (selectedPath) => {
-            document.getElementById('english_dest').value = selectedPath;
+        folderBrowser.open(startPath, (selectedPath) => {
+            input.value = selectedPath;
         });
     }
 
@@ -68,32 +86,56 @@
         const malayalamDest = document.getElementById('malayalam_dest').value;
         const englishDest = document.getElementById('english_dest').value;
         const dryRun = document.getElementById('dry_run').checked;
+        const startBtn = document.getElementById('startBtn');
+
+        if (!origin || !malayalamDest || !englishDest) {
+            alert('Please select all required folders.');
+            return;
+        }
 
         const statusDiv = document.getElementById('status');
         statusDiv.style.display = 'block';
         statusDiv.style.background = '#e3f2fd';
-        statusDiv.style.color = '#1976d2';
-        statusDiv.innerHTML = '⏳ Starting cleanup...';
+        statusDiv.style.color = '#0d47a1';
+        statusDiv.style.border = '1px solid #bbdefb';
+        statusDiv.innerHTML = '⏳ <strong>Cleanup process initiated...</strong><br>Scanning directories and calculating file scores. This may take a few minutes depending on library size.';
+
+        startBtn.disabled = true;
+        startBtn.style.opacity = '0.6';
 
         try {
-            const response = await fetch(`/api/cleanup/start?origin=${encodeURIComponent(origin)}&malayalam_dest=${encodeURIComponent(malayalamDest)}&english_dest=${encodeURIComponent(englishDest)}&dry_run=${dryRun}`, {
-                method: 'POST'
-            });
+            const url = `/api/cleanup/start?origin=${encodeURIComponent(origin)}&malayalam_dest=${encodeURIComponent(malayalamDest)}&english_dest=${encodeURIComponent(englishDest)}&dry_run=${dryRun}`;
+            const response = await fetch(url, { method: 'POST' });
             const data = await response.json();
 
             if (data.error) {
                 statusDiv.style.background = '#ffebee';
                 statusDiv.style.color = '#c62828';
-                statusDiv.innerHTML = `❌ Error: ${data.error}`;
+                statusDiv.style.border = '1px solid #ffcdd2';
+                statusDiv.innerHTML = `❌ <strong>Operation Failed</strong><br>${data.error}`;
             } else {
                 statusDiv.style.background = '#e8f5e9';
-                statusDiv.style.color = '#2e7d32';
-                statusDiv.innerHTML = `✅ ${data.status} (Mode: ${data.mode})<br><small>Check the Dashboard for logs and results.</small>`;
+                statusDiv.style.color = '#1b5e20';
+                statusDiv.style.border = '1px solid #c8e6c9';
+
+                const modeText = dryRun ? '<span style="color: #f57c00;">DRY RUN</span>' : '<span style="color: #d32f2f;">LIVE MODE</span>';
+
+                statusDiv.innerHTML = `
+                    <div style="font-size: 18px; margin-bottom: 10px;">✅ <strong>Cleanup Successfully Started!</strong></div>
+                    <div><strong>Mode:</strong> ${modeText}</div>
+                    <div style="margin-top: 10px;">The background worker is now processing your files. You can close this page or stay to monitor progress.</div>
+                    <div style="margin-top: 15px;">
+                        <a href="/" class="btn btn-primary" style="text-decoration: none; display: inline-block;">Go to Dashboard to View Logs</a>
+                    </div>
+                `;
             }
         } catch (e) {
             statusDiv.style.background = '#ffebee';
             statusDiv.style.color = '#c62828';
-            statusDiv.innerHTML = `❌ Error starting cleanup: ${e.message}`;
+            statusDiv.innerHTML = `❌ <strong>Network Error</strong><br>Failed to connect to the server: ${e.message}`;
+        } finally {
+            startBtn.disabled = false;
+            startBtn.style.opacity = '1';
         }
     }
 </script>

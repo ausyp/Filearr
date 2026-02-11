@@ -5,173 +5,76 @@
 
 {% block content %}
 <div class="card">
-    <h3>Configuration</h3>
     <form action="/api/settings/save" method="POST">
+        <h3>🔑 API Configuration</h3>
         <label for="TMDB_API_KEY">TMDB API Key:</label><br>
-        <input type="text" id="TMDB_API_KEY" name="TMDB_API_KEY" value="{{ config.get('TMDB_API_KEY') or '' }}"
-            style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
-
-        <label for="INPUT_DIR">Input Directory (Host Path mapped to container):</label>
         <div class="input-group">
-            <input type="text" id="INPUT_DIR" name="INPUT_DIR" value="{{ config.get('INPUT_DIR') or '/input' }}">
-            <button type="button" class="btn" onclick="openBrowser('INPUT_DIR')">Browse</button>
+            <input type="text" id="TMDB_API_KEY" name="TMDB_API_KEY" value="{{ config.TMDB_API_KEY }}"
+                style="flex: 1; padding: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="testTMDB()">Test Connection</button>
         </div>
-        <small>Note: If you change this, ensure the Docker volume is mounted correctly. Restart required for Watcher
-            changes.</small><br><br>
+        <div id="tmdbStatus" style="margin-top: 5px; font-size: 14px; display: none;"></div>
+        <p style="color: #666; font-size: 13px; margin-top: 5px;">Required for automatic metadata and poster fetching.
+        </p>
 
-        <label for="OUTPUT_DIR">Output Directory:</label>
+        <h3>📁 Directory Configuration</h3>
+        <p style="color: #666; font-size: 14px;">Define where Filearr watches for new movies and where it moves them.
+        </p>
+
+        <label for="INPUT_DIR">Watch Folder (Input Directory):</label>
         <div class="input-group">
-            <input type="text" id="OUTPUT_DIR" name="OUTPUT_DIR" value="{{ config.get('OUTPUT_DIR') or '/output' }}">
-            <button type="button" class="btn" onclick="openBrowser('OUTPUT_DIR')">Browse</button>
-        </div><br>
+            <input type="text" id="INPUT_DIR" name="INPUT_DIR" value="{{ config.INPUT_DIR }}">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('INPUT_DIR')">Browse...</button>
+        </div>
 
-        <h4>Advanced Path Overrides (Optional)</h4>
-
-        <label for="MOVIES_DIR">Movies Directory:</label>
+        <label for="OUTPUT_DIR">Primary Movies Directory:</label>
         <div class="input-group">
-            <input type="text" id="MOVIES_DIR" name="MOVIES_DIR" value="{{ config.get('MOVIES_DIR') or '' }}"
-                placeholder="Default: /output/movies">
-            <button type="button" class="btn" onclick="openBrowser('MOVIES_DIR')">Browse</button>
-        </div><br>
+            <input type="text" id="OUTPUT_DIR" name="OUTPUT_DIR" value="{{ config.OUTPUT_DIR }}">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('OUTPUT_DIR')">Browse...</button>
+        </div>
 
-        <label for="MALAYALAM_DIR">Malayalam Movies Directory:</label>
+        <h4 style="margin-top: 25px;">Advanced Path Overrides</h4>
+
+        <label for="MALAYALAM_DIR">Malayalam Movies Destination:</label>
         <div class="input-group">
-            <input type="text" id="MALAYALAM_DIR" name="MALAYALAM_DIR" value="{{ config.get('MALAYALAM_DIR') or '' }}"
-                placeholder="Default: /output/malayalam-movies">
-            <button type="button" class="btn" onclick="openBrowser('MALAYALAM_DIR')">Browse</button>
-        </div><br>
+            <input type="text" id="MALAYALAM_DIR" name="MALAYALAM_DIR" value="{{ config.MALAYALAM_DIR }}">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('MALAYALAM_DIR')">Browse...</button>
+        </div>
 
-        <label for="REJECTED_DIR">Rejected Directory:</label>
+        <label for="REJECTED_DIR">Rejected Files Folder:</label>
         <div class="input-group">
-            <input type="text" id="REJECTED_DIR" name="REJECTED_DIR" value="{{ config.get('REJECTED_DIR') or '' }}"
-                placeholder="Default: /output/.rejected">
-            <button type="button" class="btn" onclick="openBrowser('REJECTED_DIR')">Browse</button>
-        </div><br>
+            <input type="text" id="REJECTED_DIR" name="REJECTED_DIR" value="{{ config.REJECTED_DIR }}">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('REJECTED_DIR')">Browse...</button>
+        </div>
 
-        <label for="TRASH_DIR">Trash Directory:</label>
+        <label for="TRASH_DIR">Trash Folder:</label>
         <div class="input-group">
-            <input type="text" id="TRASH_DIR" name="TRASH_DIR" value="{{ config.get('TRASH_DIR') or '' }}"
-                placeholder="Default: /output/.trash">
-            <button type="button" class="btn" onclick="openBrowser('TRASH_DIR')">Browse</button>
-        </div><br>
+            <input type="text" id="TRASH_DIR" name="TRASH_DIR" value="{{ config.TRASH_DIR }}">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('TRASH_DIR')">Browse...</button>
+        </div>
 
-        <button type="submit" class="btn btn-primary">Save Settings</button>
+        <div style="margin-top: 30px;">
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+        </div>
     </form>
-
-    {% if request.query_params.get('saved') %}
-    <div style="margin-top: 20px; color: green; font-weight: bold;">
-        Settings saved successfully! You may need to restart the container for some changes to take effect.
-    </div>
-    {% endif %}
 </div>
 
 <!-- Ignore Patterns Section -->
 <div class="card">
     <h3>🚫 Ignore Patterns</h3>
-    <p style="color: #666;">Files matching these glob patterns will be automatically skipped by the watcher.</p>
+    <p style="color: #666;">Define glob patterns for files that should be ignored (e.g., <code>*.sample</code>,
+        <code>*trailer*</code>).
+    </p>
 
     <div id="patternsList" style="margin: 15px 0;">
         <p>Loading patterns...</p>
     </div>
 
-    <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <input type="text" id="newPattern" placeholder="e.g., *.sample, *trailer*, *-RARBG*"
-            style="flex: 1; padding: 8px;">
-        <button class="btn btn-primary" onclick="addPattern()">Add Pattern</button>
-    </div>
-
-    <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
-        <strong>Common patterns:</strong><br>
-        <small style="color: #666;">
-            <code>*.sample</code> - Sample files |
-            <code>*trailer*</code> - Trailers |
-            <code>*-RARBG*</code> - RARBG files |
-            <code>*.txt</code> - Text files |
-            <code>*.nfo</code> - NFO files
-        </small>
+    <div class="input-group">
+        <input type="text" id="newPattern" placeholder="e.g. *.txt or *dummy*">
+        <button type="button" class="btn" onclick="addPattern()">Add Pattern</button>
     </div>
 </div>
-
-<script>
-    async function loadPatterns() {
-        try {
-            const response = await fetch('/api/ignore/patterns');
-            const data = await response.json();
-
-            const list = document.getElementById('patternsList');
-
-            if (data.patterns.length === 0) {
-                list.innerHTML = '<p style="color: #666;">No ignore patterns configured.</p>';
-                return;
-            }
-
-            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
-            data.patterns.forEach(pattern => {
-                html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
-                    <code style="flex: 1;">${pattern}</code>
-                    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="removePattern('${pattern}')">Remove</button>
-                </div>
-            `;
-            });
-            html += '</div>';
-
-            list.innerHTML = html;
-        } catch (e) {
-            console.error('Error loading patterns:', e);
-            document.getElementById('patternsList').innerHTML = '<p style="color: red;">Error loading patterns</p>';
-        }
-    }
-
-    async function addPattern() {
-        const input = document.getElementById('newPattern');
-        const pattern = input.value.trim();
-
-        if (!pattern) {
-            alert('Please enter a pattern');
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/ignore/add?pattern=${encodeURIComponent(pattern)}`, {
-                method: 'POST'
-            });
-
-            if (response.ok) {
-                input.value = '';
-                loadPatterns();
-            } else {
-                const data = await response.json();
-                alert('Error: ' + (data.error || 'Failed to add pattern'));
-            }
-        } catch (e) {
-            alert('Error adding pattern: ' + e.message);
-        }
-    }
-
-    async function removePattern(pattern) {
-        if (!confirm(`Remove pattern: ${pattern}?`)) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/ignore/remove?pattern=${encodeURIComponent(pattern)}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                loadPatterns();
-            } else {
-                alert('Failed to remove pattern');
-            }
-        } catch (e) {
-            alert('Error removing pattern: ' + e.message);
-        }
-    }
-
-    // Load patterns on page load
-    loadPatterns();
-</script>
 
 <!-- Ignored Files Section -->
 <div class="card">
@@ -183,14 +86,135 @@
     </div>
 </div>
 
+<style>
+    .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .input-group input {
+        flex: 1;
+        padding: 8px;
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/folder-browser.js"></script>
 <script>
+    // Folder Browsing Integration
+    function browseFolder(inputId) {
+        const input = document.getElementById(inputId);
+        const startPath = input.value || '/media';
+
+        folderBrowser.open(startPath, (selectedPath) => {
+            input.value = selectedPath;
+        });
+    }
+
+    // TMDB Verification
+    async function testTMDB() {
+        const key = document.getElementById('TMDB_API_KEY').value.trim();
+        const statusDiv = document.getElementById('tmdbStatus');
+
+        if (!key) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.color = '#dc3545';
+            statusDiv.innerText = '❌ Please enter an API key';
+            return;
+        }
+
+        statusDiv.style.display = 'block';
+        statusDiv.style.color = '#007bff';
+        statusDiv.innerText = '⏳ Testing connection...';
+
+        try {
+            const response = await fetch(`/api/settings/test-tmdb?api_key=${encodeURIComponent(key)}`);
+            const data = await response.json();
+
+            if (data.success) {
+                statusDiv.style.color = '#28a745';
+                statusDiv.innerText = '✅ ' + data.message;
+            } else {
+                statusDiv.style.color = '#dc3545';
+                statusDiv.innerText = '❌ ' + data.message;
+            }
+        } catch (e) {
+            statusDiv.style.color = '#dc3545';
+            statusDiv.innerText = '❌ Error connecting to backend';
+        }
+    }
+
+    // Patterns Management
+    async function loadPatterns() {
+        try {
+            const response = await fetch('/api/ignore/patterns');
+            const patterns = await response.json();
+
+            const list = document.getElementById('patternsList');
+            if (patterns.length === 0) {
+                list.innerHTML = '<p style="color: #666;">No patterns defined.</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">';
+            patterns.forEach(p => {
+                html += `
+                    <div style="background: #e9ecef; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px;">
+                        <code>${p}</code>
+                        <span style="cursor: pointer; color: #dc3545; font-weight: bold;" onclick="removePattern('${p}')">&times;</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            list.innerHTML = html;
+        } catch (e) {
+            console.error('Error loading patterns:', e);
+        }
+    }
+
+    async function addPattern() {
+        const input = document.getElementById('newPattern');
+        const pattern = input.value.trim();
+        if (!pattern) return;
+
+        try {
+            const response = await fetch(`/api/ignore/add?pattern=${encodeURIComponent(pattern)}`, { method: 'POST' });
+            if (response.ok) {
+                input.value = '';
+                loadPatterns();
+            } else {
+                alert('Failed to add pattern');
+            }
+        } catch (e) {
+            alert('Error adding pattern: ' + e.message);
+        }
+    }
+
+    async function removePattern(pattern) {
+        if (!confirm(`Remove pattern: ${pattern}?`)) return;
+
+        try {
+            const response = await fetch(`/api/ignore/remove?pattern=${encodeURIComponent(pattern)}`, { method: 'DELETE' });
+            if (response.ok) {
+                loadPatterns();
+            } else {
+                alert('Failed to remove pattern');
+            }
+        } catch (e) {
+            alert('Error removing pattern: ' + e.message);
+        }
+    }
+
+    // Ignored Files Management
     async function loadIgnoredFiles() {
         try {
             const response = await fetch('/api/ignore/files');
             const data = await response.json();
 
             const list = document.getElementById('ignoredFilesList');
-
             if (data.files.length === 0) {
                 list.innerHTML = '<p style="color: #666;">No files manually ignored.</p>';
                 return;
@@ -200,221 +224,39 @@
             data.files.forEach(file => {
                 const ignoredDate = new Date(file.ignored_at).toLocaleString();
                 html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
-                    <div style="flex: 1;">
-                        <code>${file.filename}</code><br>
-                        <small style="color: #666;">${file.reason || 'No reason'} • ${ignoredDate}</small>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="flex: 1;">
+                            <code>${file.filename}</code><br>
+                            <small style="color: #666;">${file.reason || 'No reason'} • ${ignoredDate}</small>
+                        </div>
+                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="unignoreFile('${file.file_path}')">Unignore</button>
                     </div>
-                    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="unignoreFile('${file.file_path}')">Unignore</button>
-                </div>
-            `;
+                `;
             });
             html += '</div>';
-
             list.innerHTML = html;
         } catch (e) {
             console.error('Error loading ignored files:', e);
-            document.getElementById('ignoredFilesList').innerHTML = '<p style="color: red;">Error loading ignored files</p>';
         }
     }
 
     async function unignoreFile(filePath) {
-        if (!confirm(`Remove this file from ignore list?`)) {
-            return;
-        }
+        if (!confirm(`Remove this file from ignore list?`)) return;
 
         try {
-            const response = await fetch(`/api/ignore/file/remove?file_path=${encodeURIComponent(filePath)}`, {
-                method: 'DELETE'
-            });
-
+            const response = await fetch(`/api/ignore/file/remove?file_path=${encodeURIComponent(filePath)}`, { method: 'DELETE' });
             if (response.ok) {
                 loadIgnoredFiles();
             } else {
-                alert('Failed to remove file from ignore list');
+                alert('Failed to remove file');
             }
         } catch (e) {
             alert('Error: ' + e.message);
         }
     }
 
-    // Load ignored files on page load
+    // Initial load
+    loadPatterns();
     loadIgnoredFiles();
-</script>
-
-<!-- Directory Browser Modal -->
-<div id="browserModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeBrowser()">&times;</span>
-        <h3>Select Directory</h3>
-        <div id="currentPath" style="margin-bottom: 10px; font-weight: bold;"></div>
-        <div id="fileList" class="file-list"></div>
-        <div style="margin-top: 15px; text-align: right;">
-            <button type="button" class="btn" onclick="selectCurrentPath()">Select This Folder</button>
-            <button type="button" class="btn btn-secondary" onclick="closeBrowser()">Cancel</button>
-        </div>
-    </div>
-</div>
-
-<style>
-    .input-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 10px;
-    }
-
-    .input-group input {
-        flex-grow: 1;
-        padding: 8px;
-    }
-
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .modal-content {
-        background-color: #2c2c2c;
-        margin: 10% auto;
-        padding: 20px;
-        border: 1px solid #888;
-        width: 50%;
-        color: white;
-        border-radius: 8px;
-    }
-
-    .close {
-        color: #aaa;
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-
-    .close:hover {
-        color: white;
-    }
-
-    .file-list {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid #444;
-        padding: 10px;
-        background: #1e1e1e;
-    }
-
-    .file-item {
-        padding: 5px;
-        cursor: pointer;
-        border-bottom: 1px solid #333;
-        display: flex;
-        align-items: center;
-    }
-
-    .file-item:hover {
-        background-color: #444;
-    }
-
-    .file-item.folder::before {
-        content: "📁";
-        margin-right: 8px;
-    }
-
-    .file-item.file::before {
-        content: "📄";
-        margin-right: 8px;
-    }
-
-    .file-item.parent::before {
-        content: "⬆️";
-        margin-right: 8px;
-    }
-</style>
-
-<script>
-    let currentTargetInput = null;
-    let currentPath = "/";
-
-    function openBrowser(inputId) {
-        currentTargetInput = document.getElementById(inputId);
-        let initialPath = currentTargetInput.value || "/";
-        // Simple heuristic to ensure path starts with slash on linux
-        if (!initialPath.startsWith("/") && !initialPath.match(/^[a-zA-Z]:/)) initialPath = "/";
-
-        document.getElementById('browserModal').style.display = 'block';
-        loadDirectory(initialPath);
-    }
-
-    function closeBrowser() {
-        document.getElementById('browserModal').style.display = 'none';
-    }
-
-    async function loadDirectory(path) {
-        try {
-            const response = await fetch(`/api/filesystem/list?path=${encodeURIComponent(path)}`);
-            const data = await response.json();
-
-            if (data.error) {
-                // If path invalid (e.g. empty or not found), try root
-                if (path !== "/" && path !== "C:\\") {
-                    loadDirectory("/");
-                    return;
-                }
-                alert("Error: " + data.error);
-                return;
-            }
-
-            currentPath = data.current_path;
-            document.getElementById('currentPath').innerText = currentPath;
-            const list = document.getElementById('fileList');
-            list.innerHTML = '';
-
-            // Parent directory
-            if (data.parent_path && data.parent_path !== currentPath) {
-                const parentDiv = document.createElement('div');
-                parentDiv.className = 'file-item parent';
-                parentDiv.innerText = '..';
-                parentDiv.onclick = () => loadDirectory(data.parent_path);
-                list.appendChild(parentDiv);
-            }
-
-            // Directories
-            data.directories.forEach(dir => {
-                const div = document.createElement('div');
-                div.className = 'file-item folder';
-                div.innerText = dir;
-
-                // Construct path safely for frontend logic (backend does lifting too but good to be clean)
-                let nextPath = currentPath.endsWith('/') || currentPath.endsWith('\\') ? currentPath + dir : currentPath + '/' + dir;
-
-                div.onclick = () => loadDirectory(nextPath);
-                list.appendChild(div);
-            });
-
-        } catch (e) {
-            console.error(e);
-            alert("Failed to load directory");
-        }
-    }
-
-    function selectCurrentPath() {
-        if (currentTargetInput) {
-            currentTargetInput.value = currentPath;
-        }
-        closeBrowser();
-    }
-
-    window.onclick = function (event) {
-        const modal = document.getElementById('browserModal');
-        if (event.target == modal) {
-            closeBrowser();
-        }
-    }
 </script>
 {% endblock %}

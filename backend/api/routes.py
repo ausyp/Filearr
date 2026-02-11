@@ -33,28 +33,16 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/cleanup", response_class=HTMLResponse)
 async def cleanup_page(request: Request):
-    return templates.TemplateResponse("cleanup.html", {"request": request})
+    from backend.core.config_service import config_service
+    config = config_service.get_all_settings()
+    return templates.TemplateResponse("cleanup.html", {
+        "request": request,
+        "config": config
+    })
 
 @router.post("/api/cleanup/start")
 async def start_cleanup(background_tasks: BackgroundTasks, origin: str, malayalam_dest: str, english_dest: str, dry_run: bool = True):
     import os
-    
-    # Define allowed root paths to prevent dangerous operations
-    ALLOWED_ROOTS = ["/media/downloads", "/media/movies"]
-    
-    # Validate origin path exists
-    if not os.path.exists(origin):
-        logger.error(f"Origin directory does not exist: {origin}")
-        return {"error": f"Origin directory does not exist: {origin}"}
-    
-    # Validate destination paths exist
-    if not os.path.exists(malayalam_dest):
-        logger.error(f"Malayalam destination directory does not exist: {malayalam_dest}")
-        return {"error": f"Malayalam destination directory does not exist: {malayalam_dest}"}
-    
-    if not os.path.exists(english_dest):
-        logger.error(f"English destination directory does not exist: {english_dest}")
-        return {"error": f"English destination directory does not exist: {english_dest}"}
     
     # Safety guard: ensure paths start with allowed roots
     if not any(origin.startswith(root) for root in ALLOWED_ROOTS):
@@ -72,28 +60,6 @@ async def start_cleanup(background_tasks: BackgroundTasks, origin: str, malayala
     # All validations passed, start cleanup
     background_tasks.add_task(run_manual_cleanup, origin, malayalam_dest, english_dest, dry_run)
     return {"status": "Cleanup started", "mode": "dry_run" if dry_run else "live"}
-
-@router.get("/api/browse")
-async def browse_directory(path: str = "/media"):
-    """
-    Browse filesystem directories. Restricted to /media/* for security.
-    """
-    import os
-    
-    # Security: Only allow browsing within /media
-    if not path.startswith("/media"):
-        return JSONResponse(
-            status_code=403,
-            content={"error": "Access denied. Can only browse /media directory"}
-        )
-    
-    if not os.path.exists(path):
-        return JSONResponse(
-            status_code=404,
-            content={"error": f"Path does not exist: {path}"}
-        )
-    
-    result = directory_service.list_directories(path)
     
     if "error" in result:
         return JSONResponse(status_code=500, content=result)
@@ -143,6 +109,7 @@ async def get_monitoring_stats(db: Session = Depends(get_db)):
     """Get system statistics for monitoring"""
     from datetime import datetime, timedelta
     from sqlalchemy import func
+    from backend.core.watcher import watcher_manager
     
     today = datetime.utcnow().date()
     
@@ -168,13 +135,34 @@ async def get_monitoring_stats(db: Session = Depends(get_db)):
     last_activity = db.query(WatcherLog).order_by(WatcherLog.timestamp.desc()).first()
     last_activity_time = last_activity.timestamp.isoformat() if last_activity else None
     
+    status = watcher_manager.get_status()
+    
     return {
         "processed_today": processed_today,
         "errors_today": errors_today,
         "ignored_today": ignored_today,
         "last_activity": last_activity_time,
-        "watcher_status": "running"  # Could be enhanced to check actual watcher status
+        "watcher_status": "running" if status["is_running"] else "stopped",
+        "watched_path": status["watched_path"]
     }
+
+@router.post("/api/monitoring/watcher/stop")
+async def stop_watcher():
+    from backend.core.watcher import watcher_manager
+    watcher_manager.stop()
+    return {"status": "success", "message": "Watcher stopped"}
+
+@router.post("/api/monitoring/watcher/start")
+async def start_watcher():
+    from backend.core.watcher import watcher_manager
+    watcher_manager.start()
+    return {"status": "success", "message": "Watcher started"}
+
+@router.post("/api/monitoring/watcher/restart")
+async def restart_watcher():
+    from backend.core.watcher import watcher_manager
+    watcher_manager.restart()
+    return {"status": "success", "message": "Watcher restarted"}
 
 @router.get("/api/monitoring/activity")
 async def get_monitoring_activity(limit: int = 50, db: Session = Depends(get_db)):
