@@ -5,7 +5,7 @@ from backend.db.database import get_db
 from backend.db.models import ProcessedFile, RejectedFile, ErrorLog, CleanupLog, WatcherLog
 from sqlalchemy.orm import Session
 from fastapi import Depends
-import logging
+from loguru import logger
 
 # We'll implement cleanup module next
 from backend.core.cleanup import run_manual_cleanup
@@ -14,7 +14,6 @@ from backend.core.ignore_service import ignore_service
 
 router = APIRouter()
 templates = Jinja2Templates(directory="frontend/templates")
-logger = logging.getLogger(__name__)
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
@@ -22,13 +21,16 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     rejected_files = db.query(RejectedFile).order_by(RejectedFile.created_at.desc()).limit(20).all()
     error_logs = db.query(ErrorLog).order_by(ErrorLog.timestamp.desc()).limit(20).all()
     cleanup_logs = db.query(CleanupLog).order_by(CleanupLog.timestamp.desc()).limit(30).all()
+    from backend.core.watcher import watcher_manager
+    watch_path = watcher_manager.watched_path or "Not Active"
     
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "recent_files": recent_files,
         "rejected_files": rejected_files,
         "error_logs": error_logs,
-        "cleanup_logs": cleanup_logs
+        "cleanup_logs": cleanup_logs,
+        "watch_path": watch_path
     })
 
 @router.get("/cleanup", response_class=HTMLResponse)
@@ -61,8 +63,22 @@ async def start_cleanup(background_tasks: BackgroundTasks, origin: str, malayala
         return {"error": f"Invalid English destination path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
     
     # All validations passed, start cleanup
+    try:
+        files_present = os.listdir(origin)
+        file_count = len([f for f in files_present if os.path.isfile(os.path.join(origin, f))])
+        logger.info(f"API Check: Found {file_count} files in {origin}")
+    except Exception as e:
+        logger.error(f"API Check failed for {origin}: {e}")
+        files_present = []
+        file_count = 0
+
     background_tasks.add_task(run_manual_cleanup, origin, malayalam_dest, english_dest, dry_run)
-    return {"status": "Cleanup started", "mode": "dry_run" if dry_run else "live"}
+    return {
+        "status": "Cleanup started", 
+        "mode": "dry_run" if dry_run else "live",
+        "diagnostic_files_found": file_count,
+        "path_scanned": origin
+    }
     
     if "error" in result:
         return JSONResponse(status_code=500, content=result)
@@ -252,3 +268,26 @@ async def remove_ignored_file(file_path: str):
             status_code=500,
             content={"error": "Failed to remove file from ignore list"}
         )
+@router.get("/api/debug/logs")
+async def get_system_logs():
+    """Diagnostic endpoint to read the log file"""
+    import os
+    log_path = "/data/filearr.log"
+    if not os.path.exists(log_path):
+        return {"error": "Log file not found"}
+    with open(log_path, "r") as f:
+        # Get last 100 lines
+        lines = f.readlines()
+        return {"logs": lines[-100:]}
+
+@router.get("/api/debug/touch")
+async def debug_touch_file(path: str = "/media/6937820117/test.mkv"):
+    """Diagnostic endpoint to simulate a file creation"""
+    import os
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write("test")
+        return {"status": "success", "message": f"Touched {path}"}
+    except Exception as e:
+        return {"error": str(e)}

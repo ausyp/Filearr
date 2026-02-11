@@ -4,10 +4,8 @@ from backend.core.quality import get_quality_score
 from backend.core.decision import decide
 from backend.core.file_ops import move_file, rejection_move
 from backend.core.tmdb import get_movie_metadata
-import logging
+from loguru import logger
 import os
-
-logger = logging.getLogger(__name__)
 
 def process_file(path):
     filename = os.path.basename(path)

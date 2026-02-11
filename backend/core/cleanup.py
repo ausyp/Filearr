@@ -5,10 +5,8 @@ from backend.config.settings import settings
 from backend.db.database import SessionLocal
 from backend.db.models import CleanupLog, ErrorLog
 from datetime import datetime
-import logging
+from loguru import logger
 import traceback
-
-logger = logging.getLogger(__name__)
 
 def log_cleanup(operation_type: str, file_path: str, destination: str = None, status: str = "success", details: str = None):
     """Log cleanup operation to database"""
@@ -69,13 +67,17 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
     failed_count = 0
     
     for root, dirs, files in os.walk(origin_dir):
+        logger.info(f"Scanning directory: {root} (Found {len(files)} files)")
+        if not files:
+            continue
+            
         for file in files:
             file_path = os.path.join(root, file)
+            logger.info(f"Checking file: {file}")
             
             # Skip small files or non-media files if needed
             if file.lower().endswith(('.mkv', '.mp4', '.avi', '.mov')):
-                logger.info(f"Scanning file: {file_path}")
-                processed_count += 1
+                logger.info(f"MATCH: {file_path} is a candidate.")
                 
                 try:
                     # Detect language code
@@ -110,6 +112,6 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                     log_cleanup("move", file_path, None, "failed", str(e))
                     failed_count += 1
                     
-    summary = f"Cleanup complete. Processed {processed_count} files, Moved {moved_count}, Failed {failed_count}"
+    summary = f"Summary: Processed {processed_count} files, Moved {moved_count}, Failed {failed_count}"
     logger.info(summary)
     log_cleanup("scan", origin_dir, None, "success", summary)

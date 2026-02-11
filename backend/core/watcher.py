@@ -31,18 +31,19 @@ def log_watcher_event(event_type: str, file_path: str, action: str, reason: str 
 
 class Handler(FileSystemEventHandler):
     def on_created(self, event):
+        logger.info(f"Watcher Event: {event.event_type} - {event.src_path}")
         if not event.is_directory:
-            logger.info(f"New file detected: {event.src_path}")
             log_watcher_event("created", event.src_path, "detected")
             
             # Check if file should be ignored
             should_ignore, ignore_reason = ignore_service.should_ignore(event.src_path)
             if should_ignore:
-                logger.info(f"Ignoring file {event.src_path}: {ignore_reason}")
+                logger.info(f"Ignoring: {event.src_path} ({ignore_reason})")
                 log_watcher_event("created", event.src_path, "ignored", ignore_reason)
                 return
             
             # Add a small delay to ensure file is fully written/moved
+            logger.info(f"File is valid. Waiting 2s for handle to clear: {event.src_path}")
             time.sleep(2) 
             try:
                 process_file(event.src_path)

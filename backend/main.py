@@ -11,6 +11,7 @@ from backend.api.settings import router as settings_router
 # Configure logging
 logger.remove()
 logger.add(sys.stderr, level="INFO")
+logger.add("/data/filearr.log", rotation="10 MB", level="INFO")
 
 app = FastAPI(title="Filearr", description="Intelligent Movie Ingestion & Cleanup Engine")
 
