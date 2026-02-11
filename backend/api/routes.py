@@ -44,6 +44,9 @@ async def cleanup_page(request: Request):
 async def start_cleanup(background_tasks: BackgroundTasks, origin: str, malayalam_dest: str, english_dest: str, dry_run: bool = True):
     import os
     
+    # Relaxed root: allow anything under /media (our primary volume)
+    ALLOWED_ROOTS = ["/media"]
+    
     # Safety guard: ensure paths start with allowed roots
     if not any(origin.startswith(root) for root in ALLOWED_ROOTS):
         logger.error(f"Invalid origin path: {origin}. Must start with {' or '.join(ALLOWED_ROOTS)}")
