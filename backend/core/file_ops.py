@@ -29,7 +29,7 @@ def rejection_move(src, reason):
     Moves a file to the rejected folder.
     """
     config = config_service.get_all_settings()
-    rejected_dir = config.get("REJECTED_DIR", "/media/movies/.rejected")
+    rejected_dir = config.get("REJECTED_DIR", "/media/movies/rejected")
     
     filename = os.path.basename(src)
     dest = os.path.join(rejected_dir, filename)
@@ -38,12 +38,12 @@ def rejection_move(src, reason):
 
 def trash_move(src):
     """
-    Moves a file to the trash folder.
+    Moves a file to the rejected folder (Trash is unified with Rejections).
     """
     config = config_service.get_all_settings()
-    trash_dir = config.get("TRASH_DIR", "/media/movies/.trash")
+    rejected_dir = config.get("REJECTED_DIR", "/media/movies/rejected")
     
     filename = os.path.basename(src)
-    dest = os.path.join(trash_dir, filename)
-    logger.info(f"Trashing {filename}")
+    dest = os.path.join(rejected_dir, filename)
+    logger.info(f"Trashing {filename} (Moving to rejected folder)")
     return move_file(src, dest)

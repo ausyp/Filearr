@@ -8,6 +8,7 @@ from backend.db.models import WatcherLog
 from datetime import datetime
 import os
 import time
+import threading
 from loguru import logger
 
 def log_watcher_event(event_type: str, file_path: str, action: str, reason: str = None):
@@ -109,8 +110,15 @@ class WatcherManager:
             self.observer.start()
             self.is_running = True
             
-            # Perform initial scan for existing files
-            self.initial_scan(input_dir)
+            # Start background scan loop (Initial + Periodic)
+            scan_thread = threading.Thread(
+                target=self.background_scan_loop,
+                args=(input_dir,),
+                daemon=True,
+                name="WatcherBackgroundScan"
+            )
+            scan_thread.start()
+            logger.info("Background scan loop started (Periodic: 5m)")
             
         except Exception as e:
             logger.error(f"Failed to start watcher on {input_dir}: {e}")
@@ -132,6 +140,18 @@ class WatcherManager:
             "is_running": self.is_running,
             "watched_path": self.watched_path
         }
+
+    def background_scan_loop(self, directory: str):
+        """Background thread loop for initial and periodic scanning"""
+        # 1. Initial Scan immediately
+        self.initial_scan(directory)
+        
+        # 2. Periodic Scan every 5 minutes
+        while self.is_running:
+            time.sleep(300) # 5 minutes
+            if self.is_running:
+                logger.info(f"Triggering periodic 5-minute scan of {directory}...")
+                self.initial_scan(directory)
 
     def initial_scan(self, directory: str):
         """Scan directory for existing files that haven't been processed"""

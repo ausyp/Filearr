@@ -18,9 +18,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = f"sqlite:///{DATA_DIR}/filearr.db"
     
     # Clean up settings (Defaults, can be overridden by env or DB)
-    TRASH_DIR: str = os.getenv("TRASH_DIR", f"{OUTPUT_DIR}/.trash")
-    REJECTED_DIR: str = os.getenv("REJECTED_DIR", f"{OUTPUT_DIR}/.rejected")
-    MOVIES_DIR: str = os.getenv("MOVIES_DIR", f"{OUTPUT_DIR}/movies")
+    REJECTED_DIR: str = os.getenv("REJECTED_DIR", f"{OUTPUT_DIR}/rejected")
+    MOVIES_DIR: str = os.getenv("MOVIES_DIR", OUTPUT_DIR)
     MALAYALAM_DIR: str = os.getenv("MALAYALAM_DIR", f"{OUTPUT_DIR}/malayalam-movies")
     
     # Ignore patterns (comma-separated glob patterns)

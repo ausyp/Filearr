@@ -27,13 +27,19 @@
             <button type="button" class="btn btn-secondary" onclick="browseFolder('INPUT_DIR')">Browse...</button>
         </div>
 
-        <label for="OUTPUT_DIR">Primary Movies Directory:</label>
+        <label for="OUTPUT_DIR">Primary Output Root:</label>
         <div class="input-group">
             <input type="text" id="OUTPUT_DIR" name="OUTPUT_DIR" value="{{ config.OUTPUT_DIR }}">
             <button type="button" class="btn btn-secondary" onclick="browseFolder('OUTPUT_DIR')">Browse...</button>
         </div>
 
         <h4 style="margin-top: 25px;">Advanced Path Overrides</h4>
+
+        <label for="MOVIES_DIR">English Movies Destination:</label>
+        <div class="input-group">
+            <input type="text" id="MOVIES_DIR" name="MOVIES_DIR" value="{{ config.MOVIES_DIR }}">
+            <button type="button" class="btn btn-secondary" onclick="browseFolder('MOVIES_DIR')">Browse...</button>
+        </div>
 
         <label for="MALAYALAM_DIR">Malayalam Movies Destination:</label>
         <div class="input-group">
@@ -45,12 +51,6 @@
         <div class="input-group">
             <input type="text" id="REJECTED_DIR" name="REJECTED_DIR" value="{{ config.REJECTED_DIR }}">
             <button type="button" class="btn btn-secondary" onclick="browseFolder('REJECTED_DIR')">Browse...</button>
-        </div>
-
-        <label for="TRASH_DIR">Trash Folder:</label>
-        <div class="input-group">
-            <input type="text" id="TRASH_DIR" name="TRASH_DIR" value="{{ config.TRASH_DIR }}">
-            <button type="button" class="btn btn-secondary" onclick="browseFolder('TRASH_DIR')">Browse...</button>
         </div>
 
         <div style="margin-top: 30px;">
