@@ -65,6 +65,183 @@
     {% endif %}
 </div>
 
+<!-- Ignore Patterns Section -->
+<div class="card">
+    <h3>🚫 Ignore Patterns</h3>
+    <p style="color: #666;">Files matching these glob patterns will be automatically skipped by the watcher.</p>
+
+    <div id="patternsList" style="margin: 15px 0;">
+        <p>Loading patterns...</p>
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <input type="text" id="newPattern" placeholder="e.g., *.sample, *trailer*, *-RARBG*"
+            style="flex: 1; padding: 8px;">
+        <button class="btn btn-primary" onclick="addPattern()">Add Pattern</button>
+    </div>
+
+    <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+        <strong>Common patterns:</strong><br>
+        <small style="color: #666;">
+            <code>*.sample</code> - Sample files |
+            <code>*trailer*</code> - Trailers |
+            <code>*-RARBG*</code> - RARBG files |
+            <code>*.txt</code> - Text files |
+            <code>*.nfo</code> - NFO files
+        </small>
+    </div>
+</div>
+
+<script>
+    async function loadPatterns() {
+        try {
+            const response = await fetch('/api/ignore/patterns');
+            const data = await response.json();
+
+            const list = document.getElementById('patternsList');
+
+            if (data.patterns.length === 0) {
+                list.innerHTML = '<p style="color: #666;">No ignore patterns configured.</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            data.patterns.forEach(pattern => {
+                html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                    <code style="flex: 1;">${pattern}</code>
+                    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="removePattern('${pattern}')">Remove</button>
+                </div>
+            `;
+            });
+            html += '</div>';
+
+            list.innerHTML = html;
+        } catch (e) {
+            console.error('Error loading patterns:', e);
+            document.getElementById('patternsList').innerHTML = '<p style="color: red;">Error loading patterns</p>';
+        }
+    }
+
+    async function addPattern() {
+        const input = document.getElementById('newPattern');
+        const pattern = input.value.trim();
+
+        if (!pattern) {
+            alert('Please enter a pattern');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/ignore/add?pattern=${encodeURIComponent(pattern)}`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                input.value = '';
+                loadPatterns();
+            } else {
+                const data = await response.json();
+                alert('Error: ' + (data.error || 'Failed to add pattern'));
+            }
+        } catch (e) {
+            alert('Error adding pattern: ' + e.message);
+        }
+    }
+
+    async function removePattern(pattern) {
+        if (!confirm(`Remove pattern: ${pattern}?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/ignore/remove?pattern=${encodeURIComponent(pattern)}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadPatterns();
+            } else {
+                alert('Failed to remove pattern');
+            }
+        } catch (e) {
+            alert('Error removing pattern: ' + e.message);
+        }
+    }
+
+    // Load patterns on page load
+    loadPatterns();
+</script>
+
+<!-- Ignored Files Section -->
+<div class="card">
+    <h3>📋 Ignored Files</h3>
+    <p style="color: #666;">Specific files you've manually ignored from the monitoring dashboard.</p>
+
+    <div id="ignoredFilesList" style="margin: 15px 0;">
+        <p>Loading ignored files...</p>
+    </div>
+</div>
+
+<script>
+    async function loadIgnoredFiles() {
+        try {
+            const response = await fetch('/api/ignore/files');
+            const data = await response.json();
+
+            const list = document.getElementById('ignoredFilesList');
+
+            if (data.files.length === 0) {
+                list.innerHTML = '<p style="color: #666;">No files manually ignored.</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            data.files.forEach(file => {
+                const ignoredDate = new Date(file.ignored_at).toLocaleString();
+                html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="flex: 1;">
+                        <code>${file.filename}</code><br>
+                        <small style="color: #666;">${file.reason || 'No reason'} • ${ignoredDate}</small>
+                    </div>
+                    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="unignoreFile('${file.file_path}')">Unignore</button>
+                </div>
+            `;
+            });
+            html += '</div>';
+
+            list.innerHTML = html;
+        } catch (e) {
+            console.error('Error loading ignored files:', e);
+            document.getElementById('ignoredFilesList').innerHTML = '<p style="color: red;">Error loading ignored files</p>';
+        }
+    }
+
+    async function unignoreFile(filePath) {
+        if (!confirm(`Remove this file from ignore list?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/ignore/file/remove?file_path=${encodeURIComponent(filePath)}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadIgnoredFiles();
+            } else {
+                alert('Failed to remove file from ignore list');
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    // Load ignored files on page load
+    loadIgnoredFiles();
+</script>
+
 <!-- Directory Browser Modal -->
 <div id="browserModal" class="modal">
     <div class="modal-content">

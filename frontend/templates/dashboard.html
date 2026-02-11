@@ -4,9 +4,50 @@
 {% block header %}Dashboard{% endblock %}
 
 {% block content %}
+
+<!-- System Errors Section (High Priority) -->
+{% if error_logs %}
+<div class="card" style="border-left: 4px solid #c62828;">
+    <h2 style="color: #c62828;">⚠️ System Errors</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Level</th>
+                <th>Source</th>
+                <th>Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in error_logs %}
+            <tr onclick="toggleTraceback({{ log.id }})" style="cursor: pointer;">
+                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    <span
+                        class="status-badge {% if log.level == 'ERROR' %}status-danger{% else %}status-warning{% endif %}">
+                        {{ log.level }}
+                    </span>
+                </td>
+                <td>{{ log.source }}</td>
+                <td>{{ log.message }}</td>
+            </tr>
+            {% if log.traceback %}
+            <tr id="traceback-{{ log.id }}" style="display: none;">
+                <td colspan="4" style="background: #f5f5f5; padding: 10px;">
+                    <pre style="margin: 0; font-size: 11px; overflow-x: auto;">{{ log.traceback }}</pre>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Live Activity Section -->
 <div class="card">
     <h2>Live Activity</h2>
-    <p>System is running. Watching <code>/input</code>.</p>
+    <p>System is running. Watching <code>/media/downloads</code>.</p>
 
     <h3>Recent Processed Files</h3>
     {% if recent_files %}
@@ -39,6 +80,41 @@
     {% endif %}
 </div>
 
+<!-- Cleanup Operations Section -->
+{% if cleanup_logs %}
+<div class="card">
+    <h3>🧹 Cleanup Operations</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Operation</th>
+                <th>File</th>
+                <th>Destination</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in cleanup_logs %}
+            <tr>
+                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>{{ log.operation_type }}</td>
+                <td style="font-family: monospace; font-size: 12px;">{{ log.file_path }}</td>
+                <td style="font-family: monospace; font-size: 12px;">{{ log.destination or '-' }}</td>
+                <td>
+                    <span
+                        class="status-badge {% if log.status == 'success' %}status-success{% elif log.status == 'failed' %}status-danger{% else %}status-warning{% endif %}">
+                        {{ log.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Rejected / Quarantine Section -->
 <div class="card">
     <h3>Rejected / Quarantine</h3>
     {% if rejected_files %}
@@ -64,4 +140,18 @@
     <p>No rejected files.</p>
     {% endif %}
 </div>
+
+<script>
+    function toggleTraceback(logId) {
+        const tracebackRow = document.getElementById('traceback-' + logId);
+        if (tracebackRow) {
+            tracebackRow.style.display = tracebackRow.style.display === 'none' ? 'table-row' : 'none';
+        }
+    }
+
+    // Auto-refresh dashboard every 10 seconds
+    setTimeout(() => {
+        location.reload();
+    }, 10000);
+</script>
 {% endblock %}

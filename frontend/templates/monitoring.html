@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring{% endblock %}
+{% block header %}System Monitoring{% endblock %}
+
+{% block content %}
+
+<!-- System Status Card -->
+<div class="card" style="border-left: 4px solid #2e7d32;">
+    <h2>🟢 System Status</h2>
+    <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 15px;">
+        <div class="stat-box">
+            <div class="stat-label">Watcher Status</div>
+            <div class="stat-value" id="watcherStatus">Loading...</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Processed Today</div>
+            <div class="stat-value" id="processedToday">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Ignored Today</div>
+            <div class="stat-value" id="ignoredToday">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Errors Today</div>
+            <div class="stat-value" id="errorsToday">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Last Activity</div>
+            <div class="stat-value" id="lastActivity" style="font-size: 14px;">Never</div>
+        </div>
+    </div>
+</div>
+
+<!-- Live Activity Feed -->
+<div class="card">
+    <h3>📡 Live Activity Feed</h3>
+    <p style="color: #666; font-size: 14px;">Auto-refreshes every 5 seconds • Click "Ignore" to add files to ignore list
+    </p>
+
+    <div id="activityFeed" style="margin-top: 15px;">
+        <p>Loading activity...</p>
+    </div>
+</div>
+
+<style>
+    .stat-box {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .activity-item {
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+        border-left: 4px solid #ddd;
+        background: #f9f9f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .activity-item.processed {
+        border-left-color: #2e7d32;
+        background: #e8f5e9;
+    }
+
+    .activity-item.ignored {
+        border-left-color: #f57c00;
+        background: #fff3e0;
+    }
+
+    .activity-item.failed {
+        border-left-color: #c62828;
+        background: #ffebee;
+    }
+
+    .activity-item.detected {
+        border-left-color: #1976d2;
+        background: #e3f2fd;
+    }
+
+    .activity-time {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .activity-file {
+        font-family: monospace;
+        font-size: 13px;
+        flex: 1;
+        margin: 0 15px;
+    }
+
+    .activity-action {
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+</style>
+
+<script>
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/monitoring/stats');
+            const data = await response.json();
+
+            document.getElementById('watcherStatus').textContent = data.watcher_status === 'running' ? '🟢 Running' : '🔴 Stopped';
+            document.getElementById('processedToday').textContent = data.processed_today;
+            document.getElementById('ignoredToday').textContent = data.ignored_today;
+            document.getElementById('errorsToday').textContent = data.errors_today;
+
+            if (data.last_activity) {
+                const lastTime = new Date(data.last_activity);
+                document.getElementById('lastActivity').textContent = lastTime.toLocaleTimeString();
+            }
+        } catch (e) {
+            console.error('Error loading stats:', e);
+        }
+    }
+
+    async function loadActivity() {
+        try {
+            const response = await fetch('/api/monitoring/activity?limit=30');
+            const activities = await response.json();
+
+            const feed = document.getElementById('activityFeed');
+
+            if (activities.length === 0) {
+                feed.innerHTML = '<p style="color: #666;">No activity yet.</p>';
+                return;
+            }
+
+            let html = '';
+            activities.forEach(activity => {
+                const time = new Date(activity.timestamp).toLocaleTimeString();
+                const filename = activity.file_path.split('/').pop();
+                const actionClass = activity.action;
+
+                let actionText = activity.action.toUpperCase();
+                let reasonText = activity.reason ? `<br><small style="color: #666;">${activity.reason}</small>` : '';
+
+                // Add ignore button for detected/failed files (not already ignored or processed)
+                let ignoreButton = '';
+                if (activity.action === 'detected' || activity.action === 'failed') {
+                    ignoreButton = `<button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-left: 10px;" onclick="ignoreFile('${activity.file_path}', '${filename}')">Ignore</button>`;
+                }
+
+                html += `
+            <div class="activity-item ${actionClass}">
+                <span class="activity-time">${time}</span>
+                <span class="activity-file">${filename}${reasonText}</span>
+                <span class="activity-action">${actionText}</span>
+                ${ignoreButton}
+            </div>
+        `;
+            });
+
+            feed.innerHTML = html;
+        } catch (e) {
+            console.error('Error loading activity:', e);
+            document.getElementById('activityFeed').innerHTML = '<p style="color: red;">Error loading activity</p>';
+        }
+    }
+
+    async function ignoreFile(filePath, filename) {
+        const reason = prompt(`Ignore "${filename}"?\n\nOptional reason:`);
+        if (reason === null) return; // User cancelled
+
+        try {
+            const response = await fetch(`/api/ignore/file/add?file_path=${encodeURIComponent(filePath)}&reason=${encodeURIComponent(reason || 'Manually ignored from dashboard')}`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                alert(`File "${filename}" added to ignore list`);
+                loadActivity(); // Refresh to show updated status
+            } else {
+                const data = await response.json();
+                alert('Error: ' + (data.error || 'Failed to ignore file'));
+            }
+        } catch (e) {
+            alert('Error ignoring file: ' + e.message);
+        }
+    }
+
+    // Initial load
+    loadStats();
+    loadActivity();
+
+    // Auto-refresh every 5 seconds
+    setInterval(() => {
+        loadStats();
+        loadActivity();
+    }, 5000);
+</script>
+
+{% endblock %}

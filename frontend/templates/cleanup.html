@@ -8,37 +8,92 @@
     <h3>Manual Cleanup</h3>
     <form id="cleanupForm">
         <label for="origin">Origin Folder:</label><br>
-        <input type="text" id="origin" name="origin" value="/output/malayalam-movies"
-            style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="origin" name="origin" value="/media/downloads" style="flex: 1; padding: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="browseOrigin()">Browse...</button>
+        </div>
 
-        <label for="dest">Destination Folder:</label><br>
-        <input type="text" id="dest" name="dest" value="/output/malayalam-movies"
-            style="width: 100%; padding: 8px; margin-bottom: 10px;"><br>
+        <h4 style="margin-top: 20px;">Destination Folders</h4>
 
-        <input type="checkbox" id="dry_run" name="dry_run" checked>
-        <label for="dry_run">Dry Run (Log only)</label><br><br>
+        <label for="malayalam_dest">Malayalam Movies:</label><br>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="malayalam_dest" name="malayalam_dest" value="/media/movies/malayalam-movies"
+                style="flex: 1; padding: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="browseMalayalam()">Browse...</button>
+        </div>
+
+        <label for="english_dest">English Movies:</label><br>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="english_dest" name="english_dest" value="/media/movies/english-movies"
+                style="flex: 1; padding: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="browseEnglish()">Browse...</button>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <input type="checkbox" id="dry_run" name="dry_run" checked>
+            <label for="dry_run">Dry Run (Log only)</label><br><br>
+        </div>
 
         <button type="button" class="btn btn-primary" onclick="startCleanup()">Start Cleanup</button>
     </form>
-    <div id="status" style="margin-top: 15px;"></div>
+
+    <div id="status" style="margin-top: 20px; padding: 15px; border-radius: 5px; display: none;"></div>
 </div>
 
+<script src="/static/folder-browser.js"></script>
 <script>
+    function browseOrigin() {
+        const currentPath = document.getElementById('origin').value || '/media/downloads';
+        folderBrowser.open(currentPath, (selectedPath) => {
+            document.getElementById('origin').value = selectedPath;
+        });
+    }
+
+    function browseMalayalam() {
+        const currentPath = document.getElementById('malayalam_dest').value || '/media/movies';
+        folderBrowser.open(currentPath, (selectedPath) => {
+            document.getElementById('malayalam_dest').value = selectedPath;
+        });
+    }
+
+    function browseEnglish() {
+        const currentPath = document.getElementById('english_dest').value || '/media/movies';
+        folderBrowser.open(currentPath, (selectedPath) => {
+            document.getElementById('english_dest').value = selectedPath;
+        });
+    }
+
     async function startCleanup() {
         const origin = document.getElementById('origin').value;
-        const dest = document.getElementById('dest').value;
+        const malayalamDest = document.getElementById('malayalam_dest').value;
+        const englishDest = document.getElementById('english_dest').value;
         const dryRun = document.getElementById('dry_run').checked;
 
-        document.getElementById('status').innerText = "Starting cleanup...";
+        const statusDiv = document.getElementById('status');
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#e3f2fd';
+        statusDiv.style.color = '#1976d2';
+        statusDiv.innerHTML = '⏳ Starting cleanup...';
 
         try {
-            const response = await fetch(`/api/cleanup/start?origin=${encodeURIComponent(origin)}&dest=${encodeURIComponent(dest)}&dry_run=${dryRun}`, {
+            const response = await fetch(`/api/cleanup/start?origin=${encodeURIComponent(origin)}&malayalam_dest=${encodeURIComponent(malayalamDest)}&english_dest=${encodeURIComponent(englishDest)}&dry_run=${dryRun}`, {
                 method: 'POST'
             });
             const data = await response.json();
-            document.getElementById('status').innerText = `Status: ${data.status} (Mode: ${data.mode})`;
+
+            if (data.error) {
+                statusDiv.style.background = '#ffebee';
+                statusDiv.style.color = '#c62828';
+                statusDiv.innerHTML = `❌ Error: ${data.error}`;
+            } else {
+                statusDiv.style.background = '#e8f5e9';
+                statusDiv.style.color = '#2e7d32';
+                statusDiv.innerHTML = `✅ ${data.status} (Mode: ${data.mode})<br><small>Check the Dashboard for logs and results.</small>`;
+            }
         } catch (e) {
-            document.getElementById('status').innerText = "Error starting cleanup: " + e;
+            statusDiv.style.background = '#ffebee';
+            statusDiv.style.color = '#c62828';
+            statusDiv.innerHTML = `❌ Error starting cleanup: ${e.message}`;
         }
     }
 </script>

@@ -47,7 +47,7 @@ body {
     background-color: var(--card-bg);
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
 }
 
@@ -56,7 +56,7 @@ body {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .btn {
@@ -83,7 +83,8 @@ table {
     margin-top: 10px;
 }
 
-th, td {
+th,
+td {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid #dee2e6;
@@ -100,6 +101,83 @@ th {
     font-weight: bold;
 }
 
-.status-success { background-color: #d4edda; color: #155724; }
-.status-warning { background-color: #fff3cd; color: #856404; }
-.status-danger { background-color: #f8d7da; color: #721c24; }
+.status-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 600px;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-header .close {
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.modal-header .close:hover {
+    color: #000;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}

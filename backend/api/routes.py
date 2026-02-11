@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Request, BackgroundTasks
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from backend.db.database import get_db
-from backend.db.models import ProcessedFile, RejectedFile
+from backend.db.models import ProcessedFile, RejectedFile, ErrorLog, CleanupLog, WatcherLog
 from sqlalchemy.orm import Session
 from fastapi import Depends
 import logging
 
 # We'll implement cleanup module next
-from backend.core.cleanup import run_manual_cleanup 
+from backend.core.cleanup import run_manual_cleanup
+from backend.core.directory_service import directory_service
+from backend.core.ignore_service import ignore_service 
 
 router = APIRouter()
 templates = Jinja2Templates(directory="frontend/templates")
@@ -18,11 +20,15 @@ logger = logging.getLogger(__name__)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
     recent_files = db.query(ProcessedFile).order_by(ProcessedFile.created_at.desc()).limit(50).all()
     rejected_files = db.query(RejectedFile).order_by(RejectedFile.created_at.desc()).limit(20).all()
+    error_logs = db.query(ErrorLog).order_by(ErrorLog.timestamp.desc()).limit(20).all()
+    cleanup_logs = db.query(CleanupLog).order_by(CleanupLog.timestamp.desc()).limit(30).all()
     
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "recent_files": recent_files,
-        "rejected_files": rejected_files
+        "rejected_files": rejected_files,
+        "error_logs": error_logs,
+        "cleanup_logs": cleanup_logs
     })
 
 @router.get("/cleanup", response_class=HTMLResponse)
@@ -30,6 +36,228 @@ async def cleanup_page(request: Request):
     return templates.TemplateResponse("cleanup.html", {"request": request})
 
 @router.post("/api/cleanup/start")
-async def start_cleanup(background_tasks: BackgroundTasks, origin: str, dest: str, dry_run: bool = True):
-    background_tasks.add_task(run_manual_cleanup, origin, dest, dry_run)
+async def start_cleanup(background_tasks: BackgroundTasks, origin: str, malayalam_dest: str, english_dest: str, dry_run: bool = True):
+    import os
+    
+    # Define allowed root paths to prevent dangerous operations
+    ALLOWED_ROOTS = ["/media/downloads", "/media/movies"]
+    
+    # Validate origin path exists
+    if not os.path.exists(origin):
+        logger.error(f"Origin directory does not exist: {origin}")
+        return {"error": f"Origin directory does not exist: {origin}"}
+    
+    # Validate destination paths exist
+    if not os.path.exists(malayalam_dest):
+        logger.error(f"Malayalam destination directory does not exist: {malayalam_dest}")
+        return {"error": f"Malayalam destination directory does not exist: {malayalam_dest}"}
+    
+    if not os.path.exists(english_dest):
+        logger.error(f"English destination directory does not exist: {english_dest}")
+        return {"error": f"English destination directory does not exist: {english_dest}"}
+    
+    # Safety guard: ensure paths start with allowed roots
+    if not any(origin.startswith(root) for root in ALLOWED_ROOTS):
+        logger.error(f"Invalid origin path: {origin}. Must start with {' or '.join(ALLOWED_ROOTS)}")
+        return {"error": f"Invalid origin path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
+    
+    if not any(malayalam_dest.startswith(root) for root in ALLOWED_ROOTS):
+        logger.error(f"Invalid Malayalam destination path: {malayalam_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
+        return {"error": f"Invalid Malayalam destination path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
+    
+    if not any(english_dest.startswith(root) for root in ALLOWED_ROOTS):
+        logger.error(f"Invalid English destination path: {english_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
+        return {"error": f"Invalid English destination path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
+    
+    # All validations passed, start cleanup
+    background_tasks.add_task(run_manual_cleanup, origin, malayalam_dest, english_dest, dry_run)
     return {"status": "Cleanup started", "mode": "dry_run" if dry_run else "live"}
+
+@router.get("/api/browse")
+async def browse_directory(path: str = "/media"):
+    """
+    Browse filesystem directories. Restricted to /media/* for security.
+    """
+    import os
+    
+    # Security: Only allow browsing within /media
+    if not path.startswith("/media"):
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Access denied. Can only browse /media directory"}
+        )
+    
+    if not os.path.exists(path):
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Path does not exist: {path}"}
+        )
+    
+    result = directory_service.list_directories(path)
+    
+    if "error" in result:
+        return JSONResponse(status_code=500, content=result)
+    
+    return result
+
+@router.get("/api/logs/errors")
+async def get_error_logs(limit: int = 50, db: Session = Depends(get_db)):
+    """
+    Retrieve recent error logs.
+    """
+    error_logs = db.query(ErrorLog).order_by(ErrorLog.timestamp.desc()).limit(limit).all()
+    
+    return [{
+        "id": log.id,
+        "timestamp": log.timestamp.isoformat(),
+        "level": log.level,
+        "source": log.source,
+        "message": log.message,
+        "traceback": log.traceback
+    } for log in error_logs]
+
+@router.get("/api/logs/cleanup")
+async def get_cleanup_logs(limit: int = 100, db: Session = Depends(get_db)):
+    """
+    Retrieve recent cleanup operation logs.
+    """
+    cleanup_logs = db.query(CleanupLog).order_by(CleanupLog.timestamp.desc()).limit(limit).all()
+    
+    return [{
+        "id": log.id,
+        "timestamp": log.timestamp.isoformat(),
+        "operation_type": log.operation_type,
+        "file_path": log.file_path,
+        "destination": log.destination,
+        "status": log.status,
+        "details": log.details
+    } for log in cleanup_logs]
+
+@router.get("/monitoring", response_class=HTMLResponse)
+async def monitoring_page(request: Request):
+    """Monitoring dashboard page"""
+    return templates.TemplateResponse("monitoring.html", {"request": request})
+
+@router.get("/api/monitoring/stats")
+async def get_monitoring_stats(db: Session = Depends(get_db)):
+    """Get system statistics for monitoring"""
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    
+    today = datetime.utcnow().date()
+    
+    # Count files processed today
+    processed_today = db.query(func.count(WatcherLog.id)).filter(
+        WatcherLog.action == "processed",
+        func.date(WatcherLog.timestamp) == today
+    ).scalar() or 0
+    
+    # Count errors today
+    errors_today = db.query(func.count(WatcherLog.id)).filter(
+        WatcherLog.action == "failed",
+        func.date(WatcherLog.timestamp) == today
+    ).scalar() or 0
+    
+    # Count ignored today
+    ignored_today = db.query(func.count(WatcherLog.id)).filter(
+        WatcherLog.action == "ignored",
+        func.date(WatcherLog.timestamp) == today
+    ).scalar() or 0
+    
+    # Get last activity
+    last_activity = db.query(WatcherLog).order_by(WatcherLog.timestamp.desc()).first()
+    last_activity_time = last_activity.timestamp.isoformat() if last_activity else None
+    
+    return {
+        "processed_today": processed_today,
+        "errors_today": errors_today,
+        "ignored_today": ignored_today,
+        "last_activity": last_activity_time,
+        "watcher_status": "running"  # Could be enhanced to check actual watcher status
+    }
+
+@router.get("/api/monitoring/activity")
+async def get_monitoring_activity(limit: int = 50, db: Session = Depends(get_db)):
+    """Get recent watcher activity"""
+    activity = db.query(WatcherLog).order_by(WatcherLog.timestamp.desc()).limit(limit).all()
+    
+    return [{
+        "id": log.id,
+        "timestamp": log.timestamp.isoformat(),
+        "event_type": log.event_type,
+        "file_path": log.file_path,
+        "action": log.action,
+        "reason": log.reason
+    } for log in activity]
+
+@router.get("/api/ignore/patterns")
+async def get_ignore_patterns():
+    """Get all ignore patterns"""
+    patterns = ignore_service.get_ignore_patterns()
+    return {"patterns": patterns}
+
+@router.post("/api/ignore/add")
+async def add_ignore_pattern(pattern: str):
+    """Add a new ignore pattern"""
+    if not pattern or not pattern.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Pattern cannot be empty"}
+        )
+    
+    success = ignore_service.add_pattern(pattern.strip())
+    if success:
+        return {"status": "success", "pattern": pattern.strip()}
+    else:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to add pattern"}
+        )
+
+@router.delete("/api/ignore/remove")
+async def remove_ignore_pattern(pattern: str):
+    """Remove an ignore pattern"""
+    success = ignore_service.remove_pattern(pattern)
+    if success:
+        return {"status": "success", "pattern": pattern}
+    else:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to remove pattern"}
+        )
+
+@router.get("/api/ignore/files")
+async def get_ignored_files():
+    """Get all specifically ignored files"""
+    files = ignore_service.get_ignored_files()
+    return {"files": files}
+
+@router.post("/api/ignore/file/add")
+async def add_ignored_file(file_path: str, reason: str = None):
+    """Add a specific file to ignore list"""
+    if not file_path or not file_path.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "File path cannot be empty"}
+        )
+    
+    success = ignore_service.add_ignored_file(file_path.strip(), reason)
+    if success:
+        return {"status": "success", "file_path": file_path.strip()}
+    else:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to add file to ignore list"}
+        )
+
+@router.delete("/api/ignore/file/remove")
+async def remove_ignored_file(file_path: str):
+    """Remove a specific file from ignore list"""
+    success = ignore_service.remove_ignored_file(file_path)
+    if success:
+        return {"status": "success", "file_path": file_path}
+    else:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to remove file from ignore list"}
+        )

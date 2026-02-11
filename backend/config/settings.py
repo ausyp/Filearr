@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     MOVIES_DIR: str = os.getenv("MOVIES_DIR", f"{OUTPUT_DIR}/movies")
     MALAYALAM_DIR: str = os.getenv("MALAYALAM_DIR", f"{OUTPUT_DIR}/malayalam-movies")
     
+    # Ignore patterns (comma-separated glob patterns)
+    IGNORE_PATTERNS: str = os.getenv("IGNORE_PATTERNS", "*.sample,*.txt,*.nfo,*-RARBG*,*trailer*")
+    
     class Config:
         env_file = ".env"
 
