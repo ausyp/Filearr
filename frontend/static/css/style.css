@@ -119,23 +119,28 @@ th {
 /* Modal Styles */
 .modal {
     position: fixed;
-    z-index: 1000;
+    z-index: 9999;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
+    background-color: rgba(0, 0, 0, 0.6);
+    /* Slightly darker backdrop */
+    display: none;
+    /* Controlled by JS flex/none */
     align-items: center;
     justify-content: center;
 }
 
 .modal-content {
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     width: 90%;
     max-width: 600px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-header {

@@ -43,7 +43,7 @@ class FolderBrowser {
         this.currentPath = startPath || '/media';
         this.callback = callback;
 
-        document.getElementById('folderBrowserModal').style.display = 'block';
+        document.getElementById('folderBrowserModal').style.display = 'flex';
         await this.loadDirectory(this.currentPath);
     }
 
