@@ -300,14 +300,25 @@ async def get_system_logs():
         lines = f.readlines()
         return {"logs": lines[-100:]}
 
-@router.get("/api/debug/touch")
-async def debug_touch_file(path: str = "/media/6937820117/test.mkv"):
-    """Diagnostic endpoint to simulate a file creation"""
+@router.get("/api/debug/ls")
+async def debug_list_files(path: str = "/media"):
+    """Diagnostic endpoint to see what the container sees"""
     import os
+    if not os.path.exists(path):
+        return {"error": f"Path {path} not found"}
+    
+    structure = []
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
-            f.write("test")
-        return {"status": "success", "message": f"Touched {path}"}
+        for root, dirs, files in os.walk(path):
+            # Limit depth for safety or just show everything if it's a small path
+            rel_path = os.path.relpath(root, path)
+            structure.append({
+                "path": rel_path,
+                "dirs": dirs,
+                "files": files
+            })
+            if len(structure) > 100: # Safety break
+                break
+        return {"structure": structure}
     except Exception as e:
         return {"error": str(e)}
