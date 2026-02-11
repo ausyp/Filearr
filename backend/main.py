@@ -20,10 +20,11 @@ app = FastAPI(title="Filearr", description="Intelligent Movie Ingestion & Cleanu
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    logger.error(f"Validation Error for {request.url}: {exc.errors()}")
+    body = await request.body()
+    logger.error(f"Validation Error for {request.url}: {exc.errors()} | Body: {body.decode()}")
     return JSONResponse(
         status_code=422,
-        content={"error": "Validation Failed", "detail": exc.errors()}
+        content={"error": "Validation Failed", "detail": exc.errors(), "received_body": body.decode()}
     )
 
 # Mount static files

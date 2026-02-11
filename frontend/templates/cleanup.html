@@ -158,20 +158,19 @@
             return;
         }
 
-        const startBtn = document.getElementById('startBtn');
-        startBtn.disabled = true;
-        startBtn.style.opacity = '0.6';
+        const payload = {
+            origin_dir: origin,
+            malayalam_dest: malayalam_dest,
+            english_dest: english_dest,
+            dry_run: dryRun
+        };
+        console.log('Starting cleanup with payload:', payload);
 
         try {
             const response = await fetch('/api/cleanup/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    origin_dir: origin,
-                    malayalam_dest: malayalam_dest,
-                    english_dest: english_dest,
-                    dry_run: dryRun
-                })
+                body: JSON.stringify(payload)
             });
             const data = await response.json();
 
