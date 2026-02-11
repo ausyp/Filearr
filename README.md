@@ -29,11 +29,10 @@ Filearr is a comprehensive, Dockerized application for automating movie organiza
     ```
 
 2.  **Update `docker-compose.yml` volumes**:
-    Ensure the paths on the left side of the colon match your host machine's directory structure.
+    Ensure the path on the left side of the colon matches your host machine's media library location.
     ```yaml
     volumes:
-      - /path/to/downloads:/input
-      - /path/to/media:/output
+      - /path/to/your/media:/media
       - ./data:/data
     ```
 

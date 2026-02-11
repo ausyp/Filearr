@@ -24,4 +24,3 @@ services:
       - INPUT_DIR=/media/downloads
       - OUTPUT_DIR=/media/movies
       - DATA_DIR=/data
-      - DATA_DIR=/data

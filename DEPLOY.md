@@ -51,8 +51,7 @@ Docker Desktop for Windows often mounts drives like `c:/` as `/run/desktop/mnt/h
 **Example `docker-compose.yml` needed for Windows:**
 ```yaml
 volumes:
-  - /c/Users/reach/Downloads:/input
-  - /c/Users/reach/Media:/output
+  - /c/Users/reach/Media:/media
   - ./data:/data
 ```
 Make sure to update your `docker-compose.yml` before deploying!
