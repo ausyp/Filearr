@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 from backend.core.watcher import watcher_manager
 from backend.core.tmdb import test_tmdb_api
 
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    config = config_service.get_all_settings()
+    return templates.TemplateResponse("settings.html", {"request": request, "config": config})
+
 @router.get("/api/settings/test-tmdb")
 async def verify_tmdb_key(api_key: str = Query(...)):
     success, message = test_tmdb_api(api_key)
