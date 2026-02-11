@@ -58,20 +58,39 @@ async def debug_dump_config():
 
 @router.post("/api/cleanup/start")
 async def start_cleanup(
+    request: Request,
     background_tasks: BackgroundTasks,
-    request: CleanupRequest = None,
-    origin: str = None,
-    malayalam_dest: str = None,
-    english_dest: str = None,
-    dry_run: bool = True
+    origin: str = Query(None),
+    malayalam_dest: str = Query(None),
+    english_dest: str = Query(None),
+    dry_run: bool = Query(True)
 ):
     from backend.core.cleanup import run_manual_cleanup, cleanup_manager
     
-    # Consolidate inputs (Body takes priority)
-    final_origin = request.origin_dir if request else origin
-    final_mal = request.malayalam_dest if request else malayalam_dest
-    final_eng = request.english_dest if request else english_dest
-    final_dry = request.dry_run if request else dry_run
+    # Try to parse JSON body manually to avoid 422 if it's malformed
+    body_data = {}
+    try:
+        body_data = await request.json()
+    except Exception:
+        pass
+
+    # Consolidate inputs (Body takes priority, but ONLY if they are valid strings)
+    # The logs showed the frontend sending {}, so we check for string type
+    def get_val(key, default):
+        v = body_data.get(key)
+        if isinstance(v, str): return v
+        return default
+
+    final_origin = get_val("origin_dir", origin)
+    final_mal = get_val("malayalam_dest", malayalam_dest)
+    final_eng = get_val("english_dest", english_dest)
+    
+    # Check dry_run (can be bool or string from query)
+    final_dry = body_data.get("dry_run")
+    if final_dry is None: final_dry = dry_run
+    if isinstance(final_dry, str): final_dry = final_dry.lower() == "true"
+
+    logger.info(f"Consolidated cleanup parameters: origin={final_origin}, mal={final_mal}, eng={final_eng}, dry={final_dry}")
 
     if not all([final_origin, final_mal, final_eng]):
         logger.error(f"Missing cleanup parameters: {final_origin}, {final_mal}, {final_eng}")

@@ -159,10 +159,10 @@
         }
 
         const payload = {
-            origin_dir: origin,
-            malayalam_dest: malayalam_dest,
-            english_dest: english_dest,
-            dry_run: dryRun
+            origin_dir: String(origin),
+            malayalam_dest: String(malayalamDest),
+            english_dest: String(englishDest),
+            dry_run: Boolean(dryRun)
         };
         console.log('Starting cleanup with payload:', payload);
 

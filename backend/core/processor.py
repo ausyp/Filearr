@@ -14,14 +14,14 @@ def process_file(path):
     # 1. Check if CAM/TS
     if is_cam(filename):
         rejection_move(path, "CAM/TS detected")
-        return
+        return {"status": "rejected", "reason": "CAM/TS detected"}
 
     # 2. Get Metadata
     metadata = get_movie_metadata(filename)
     if not metadata:
         logger.warning(f"Could not identify movie for {filename}")
         # Optionally move to manual review folder or skip
-        return
+        return {"status": "skipped", "reason": "Movie metadata not found"}
 
     # 3. Detect Language & Quality
     from backend.core.language import get_refined_language
@@ -36,7 +36,10 @@ def process_file(path):
     # 5. Execute Decision
     if decision.action == "move":
         move_file(path, decision.destination)
+        return {"status": "processed", "reason": f"Moved to {os.path.basename(os.path.dirname(decision.destination))}"}
     elif decision.action == "reject":
         rejection_move(path, decision.reason)
+        return {"status": "rejected", "reason": decision.reason}
     else:
         logger.info(f"Decision for {filename}: {decision.action} - {decision.reason}")
+        return {"status": "ignored", "reason": decision.reason}

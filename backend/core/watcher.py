@@ -46,8 +46,10 @@ class Handler(FileSystemEventHandler):
             logger.info(f"File is valid. Waiting 2s for handle to clear: {event.src_path}")
             time.sleep(2) 
             try:
-                process_file(event.src_path)
-                log_watcher_event("created", event.src_path, "processed")
+                result = process_file(event.src_path)
+                status = result.get("status", "processed") if result else "processed"
+                reason = result.get("reason") if result else None
+                log_watcher_event("created", event.src_path, status, reason)
             except Exception as e:
                 error_msg = f"Error processing file {event.src_path}: {e}"
                 logger.error(error_msg)
@@ -66,8 +68,10 @@ class Handler(FileSystemEventHandler):
                 return
             
             try:
-                process_file(event.dest_path)
-                log_watcher_event("moved", event.dest_path, "processed")
+                result = process_file(event.dest_path)
+                status = result.get("status", "processed") if result else "processed"
+                reason = result.get("reason") if result else None
+                log_watcher_event("moved", event.dest_path, status, reason)
             except Exception as e:
                 error_msg = f"Error processing moved file {event.dest_path}: {e}"
                 logger.error(error_msg)
@@ -153,10 +157,12 @@ class WatcherManager:
                             log_watcher_event("scan", file_path, "detected")
                             
                             # Process it
-                            process_file(file_path)
+                            result = process_file(file_path)
+                            status = result.get("status", "processed") if result else "processed"
+                            reason = result.get("reason") if result else None
                             
-                            # Log as processed
-                            log_watcher_event("scan", file_path, "processed")
+                            # Log result
+                            log_watcher_event("scan", file_path, status, reason)
                             count += 1
                         except Exception as e:
                             logger.error(f"Failed to process {file_path} during initial scan: {e}")
