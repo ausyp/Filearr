@@ -51,43 +51,51 @@ async def cleanup_page(request: Request):
     })
 
 @router.post("/api/cleanup/start")
-async def start_cleanup(request: CleanupRequest, background_tasks: BackgroundTasks):
+async def start_cleanup(
+    background_tasks: BackgroundTasks,
+    request: CleanupRequest = None,
+    origin: str = None,
+    malayalam_dest: str = None,
+    english_dest: str = None,
+    dry_run: bool = True
+):
     from backend.core.cleanup import run_manual_cleanup, cleanup_manager
-    import os
     
+    # Consolidate inputs (Body takes priority)
+    final_origin = request.origin_dir if request else origin
+    final_mal = request.malayalam_dest if request else malayalam_dest
+    final_eng = request.english_dest if request else english_dest
+    final_dry = request.dry_run if request else dry_run
+
+    if not all([final_origin, final_mal, final_eng]):
+        logger.error(f"Missing cleanup parameters: {final_origin}, {final_mal}, {final_eng}")
+        return {"error": "Missing required parameters (origin, malayalam_dest, english_dest)"}
+
     # Relaxed root: allow anything under /media (our primary volume)
     ALLOWED_ROOTS = ["/media"]
     
     # Safety guard: ensure paths start with allowed roots
-    if not any(request.origin_dir.startswith(root) for root in ALLOWED_ROOTS):
-        logger.error(f"Invalid origin path: {request.origin_dir}. Must start with {' or '.join(ALLOWED_ROOTS)}")
-        return {"error": f"Invalid origin path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
+    for p, name in [(final_origin, "origin"), (final_mal, "malayalam"), (final_eng, "english")]:
+        if not any(p.startswith(root) for root in ALLOWED_ROOTS):
+            msg = f"Invalid {name} path: {p}. Must start with {' or '.join(ALLOWED_ROOTS)}"
+            logger.error(msg)
+            return {"error": msg}
     
-    if not any(request.malayalam_dest.startswith(root) for root in ALLOWED_ROOTS):
-        logger.error(f"Invalid Malayalam destination path: {request.malayalam_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
-        return {"error": f"Invalid Malayalam destination path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
-    
-    if not any(request.english_dest.startswith(root) for root in ALLOWED_ROOTS):
-        logger.error(f"Invalid English destination path: {request.english_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
-        return {"error": f"Invalid English destination path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
-    
-    # Check if a cleanup is already running
     if cleanup_manager.is_running:
         return {"status": "error", "message": "Cleanup already in progress"}
 
-    # All validations passed, start cleanup
     background_tasks.add_task(
         run_manual_cleanup,
-        request.origin_dir,
-        request.malayalam_dest,
-        request.english_dest,
-        request.dry_run
+        final_origin,
+        final_mal,
+        final_eng,
+        final_dry
     )
     
     return {
         "status": "success", 
         "message": "Cleanup started in background",
-        "mode": "dry_run" if request.dry_run else "live"
+        "mode": "dry_run" if final_dry else "live"
     }
 
 @router.post("/api/cleanup/stop")
