@@ -35,7 +35,7 @@ async def save_settings(
     keys = [
         "TMDB_API_KEY", 
         "INPUT_DIR", "OUTPUT_DIR", 
-        "MOVIES_DIR", "MALAYALAM_DIR", "REJECTED_DIR", "TRASH_DIR"
+        "MOVIES_DIR", "MALAYALAM_DIR", "REJECTED_DIR"
     ]
     
     old_input_dir = config_service.get_setting("INPUT_DIR")

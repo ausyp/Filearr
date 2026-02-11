@@ -65,7 +65,6 @@ class ConfigService:
             "MOVIES_DIR": env_settings.MOVIES_DIR,
             "MALAYALAM_DIR": env_settings.MALAYALAM_DIR,
             "REJECTED_DIR": env_settings.REJECTED_DIR,
-            "TRASH_DIR": env_settings.TRASH_DIR,
         }
         
         # Overlay DB settings
