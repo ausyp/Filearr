@@ -46,7 +46,18 @@ def detect_language(path):
             # If we find a non-'und' language, keep it if we don't find others
             # But we prefer matching our known list first
             
-        # If no known language found, return the first one that wasn't empty or 'und'
+        # If no known language found, check filename for keywords
+        filename_lower = os.path.basename(path).lower()
+        if 'malayalam' in filename_lower or ' mal ' in filename_lower or '.mal.' in filename_lower:
+            return 'mal'
+        if 'tamil' in filename_lower or ' tam ' in filename_lower or '.tam.' in filename_lower:
+            return 'tam'
+        if 'hindi' in filename_lower or ' hin ' in filename_lower or '.hin.' in filename_lower:
+            return 'hin'
+        if 'telugu' in filename_lower or ' tel ' in filename_lower or '.tel.' in filename_lower:
+            return 'tel'
+
+        # If still no known language found, return the first one that wasn't empty or 'und'
         for stream in streams:
             lang = stream.get('tags', {}).get('language', '').lower()
             if lang and lang != 'und':

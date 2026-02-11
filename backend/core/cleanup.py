@@ -79,7 +79,6 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
             if file.lower().endswith(('.mkv', '.mp4', '.avi', '.mov')):
                 logger.info(f"MATCH: {file_path} is a candidate.")
                 
-                try:
                     # Detect language code
                     lang_code = detect_language(file_path)
                     
