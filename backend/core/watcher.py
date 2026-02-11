@@ -96,6 +96,11 @@ class WatcherManager:
         
         logger.info(f"Starting watcher on {input_dir}")
         try:
+            # Diagnostic: List contents of watch folder
+            if os.path.isdir(input_dir):
+                contents = os.listdir(input_dir)
+                logger.info(f"Initial contents of {input_dir}: {contents}")
+            
             self.observer.schedule(self.event_handler, input_dir, recursive=True)
             self.observer.start()
             self.is_running = True
