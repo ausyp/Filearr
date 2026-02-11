@@ -25,24 +25,34 @@ def detect_language(path):
         if not streams:
             return 'und'
             
-        # Check first audio stream
-        tags = streams[0].get('tags', {})
-        lang = tags.get('language', '').lower()
-        
-        if not lang:
-            return 'und'
+        # Check all audio streams
+        for stream in streams:
+            tags = stream.get('tags', {})
+            lang = tags.get('language', '').lower()
             
-        # Normalize common variations
-        if lang in ['mal', 'malam', 'malayalam']:
-            return 'mal'
-        if lang in ['eng', 'english']:
-            return 'eng'
-        if lang in ['hin', 'hindi']:
-            return 'hin'
-        if lang in ['tam', 'tamil']:
-            return 'tam'
+            if not lang:
+                continue
+                
+            # Normalize common variations
+            if lang in ['mal', 'may', 'malam', 'malayalam']:
+                return 'mal'
+            if lang in ['eng', 'english']:
+                return 'eng'
+            if lang in ['hin', 'hindi']:
+                return 'hin'
+            if lang in ['tam', 'tamil']:
+                return 'tam'
             
-        return lang
+            # If we find a non-'und' language, keep it if we don't find others
+            # But we prefer matching our known list first
+            
+        # If no known language found, return the first one that wasn't empty or 'und'
+        for stream in streams:
+            lang = stream.get('tags', {}).get('language', '').lower()
+            if lang and lang != 'und':
+                return lang
+                
+        return 'und'
     except Exception as e:
         logger.error(f"Language detection failed for {path}: {e}")
         return 'und'
