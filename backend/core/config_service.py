@@ -69,16 +69,19 @@ class ConfigService:
         }
         
         # Overlay DB settings
-        db = SessionLocal()
         try:
-            db_settings = db.query(SystemSetting).all()
-            for s in db_settings:
-                if s.value:
-                    config[s.key] = s.value
+            db = SessionLocal()
+            try:
+                db_settings = db.query(SystemSetting).all()
+                for s in db_settings:
+                    if s.value:
+                        config[s.key] = s.value
+            except Exception as e:
+                logger.error(f"Error querying DB settings: {e}")
+            finally:
+                db.close()
         except Exception as e:
-            logger.error(f"Error listing settings: {e}")
-        finally:
-            db.close()
+            logger.error(f"Error creating DB session in get_all_settings: {e}")
             
         return config
 

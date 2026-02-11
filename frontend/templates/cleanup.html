@@ -10,10 +10,12 @@
         Use this tool to reorganize files already in your library. It uses your current settings as defaults.
     </p>
 
-    <form id="cleanupForm">
+    <div id="cleanupForm">
+        {% if config %}
         <label for="origin">Watch Folder (Scan for cleanup):</label><br>
         <div class="input-group">
-            <input type="text" id="origin" name="origin" value="{{ config.INPUT_DIR }}" placeholder="/media/downloads">
+            <input type="text" id="origin" name="origin" value="{{ config['INPUT_DIR'] }}"
+                placeholder="/media/downloads">
             <button type="button" class="btn btn-secondary" onclick="browseFolder('origin')">Browse...</button>
         </div>
 
@@ -21,14 +23,14 @@
 
         <label for="malayalam_dest">Malayalam Movies Destination:</label><br>
         <div class="input-group">
-            <input type="text" id="malayalam_dest" name="malayalam_dest" value="{{ config.MALAYALAM_DIR }}"
+            <input type="text" id="malayalam_dest" name="malayalam_dest" value="{{ config['MALAYALAM_DIR'] }}"
                 placeholder="/media/movies/malayalam">
             <button type="button" class="btn btn-secondary" onclick="browseFolder('malayalam_dest')">Browse...</button>
         </div>
 
         <label for="english_dest">English Movies Destination (Default):</label><br>
         <div class="input-group">
-            <input type="text" id="english_dest" name="english_dest" value="{{ config.MOVIES_DIR }}"
+            <input type="text" id="english_dest" name="english_dest" value="{{ config['MOVIES_DIR'] }}"
                 placeholder="/media/movies">
             <button type="button" class="btn btn-secondary" onclick="browseFolder('english_dest')">Browse...</button>
         </div>
@@ -41,6 +43,9 @@
             <p style="margin: 5px 0 0 25px; font-size: 13px; color: #555;">No files will be moved. View potential
                 changes in the Cleanup Logs on the Dashboard.</p>
         </div>
+        {% else %}
+        <p style="color: red;">Error: System configuration could not be loaded. Please check your settings.</p>
+        {% endif %}
 
         <div style="margin-top: 30px; display: flex; gap: 15px;">
             <button type="button" class="btn btn-primary" onclick="startCleanup()" id="startBtn"
@@ -48,7 +53,7 @@
             <button type="button" class="btn btn-danger" onclick="stopCleanup()" id="stopBtn"
                 style="padding: 12px 30px; display: none;">Stop Operation</button>
         </div>
-    </form>
+    </div>
 
     <div id="status" style="margin-top: 25px; padding: 20px; border-radius: 8px; display: none; line-height: 1.6;">
     </div>

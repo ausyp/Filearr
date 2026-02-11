@@ -11,6 +11,13 @@ from loguru import logger
 from backend.core.cleanup import run_manual_cleanup
 from backend.core.directory_service import directory_service
 from backend.core.ignore_service import ignore_service 
+from pydantic import BaseModel
+
+class CleanupRequest(BaseModel):
+    origin_dir: str
+    malayalam_dest: str
+    english_dest: str
+    dry_run: bool = True
 
 router = APIRouter()
 templates = Jinja2Templates(directory="frontend/templates")
@@ -37,18 +44,11 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 async def cleanup_page(request: Request):
     from backend.core.config_service import config_service
     config = config_service.get_all_settings()
+    logger.info(f"Rendering cleanup page with config keys: {list(config.keys())}")
     return templates.TemplateResponse("cleanup.html", {
         "request": request,
         "config": config
     })
-
-from pydantic import BaseModel
-
-class CleanupRequest(BaseModel):
-    origin_dir: str
-    malayalam_dest: str
-    english_dest: str
-    dry_run: bool = True
 
 @router.post("/api/cleanup/start")
 async def start_cleanup(request: CleanupRequest, background_tasks: BackgroundTasks):
