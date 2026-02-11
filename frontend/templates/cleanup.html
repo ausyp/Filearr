@@ -42,9 +42,11 @@
                 changes in the Cleanup Logs on the Dashboard.</p>
         </div>
 
-        <div style="margin-top: 30px;">
+        <div style="margin-top: 30px; display: flex; gap: 15px;">
             <button type="button" class="btn btn-primary" onclick="startCleanup()" id="startBtn"
-                style="padding: 12px 30px;">Start Cleanup Operation</button>
+                style="padding: 12px 30px;">Start Reorganisation</button>
+            <button type="button" class="btn btn-danger" onclick="stopCleanup()" id="stopBtn"
+                style="padding: 12px 30px; display: none;">Stop Operation</button>
         </div>
     </form>
 
@@ -72,6 +74,54 @@
 {% block scripts %}
 <script src="/static/folder-browser.js"></script>
 <script>
+    let pollInterval = null;
+
+    window.onload = function () {
+        checkStatus();
+        pollInterval = setInterval(checkStatus, 3000);
+    };
+
+    async function checkStatus() {
+        try {
+            const response = await fetch('/api/cleanup/status');
+            const data = await response.json();
+
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const statusDiv = document.getElementById('status');
+
+            if (data.is_running) {
+                startBtn.disabled = true;
+                startBtn.style.opacity = '0.5';
+                stopBtn.style.display = 'inline-block';
+
+                if (data.should_stop) {
+                    stopBtn.disabled = true;
+                    stopBtn.innerText = 'Stopping...';
+                    stopBtn.style.opacity = '0.5';
+                } else {
+                    stopBtn.disabled = false;
+                    stopBtn.innerText = 'Stop Operation';
+                    stopBtn.style.opacity = '1';
+                }
+
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#e3f2fd';
+                statusDiv.style.color = '#0d47a1';
+                statusDiv.style.border = '1px solid #bbdefb';
+                statusDiv.innerHTML = `⏳ <strong>Cleanup in progress...</strong><br>Currently processing: <code style="word-break: break-all;">${data.current_file || 'Starting...'}</code>`;
+            } else {
+                startBtn.disabled = false;
+                startBtn.style.opacity = '1';
+                stopBtn.style.display = 'none';
+
+                // If it was just running, we might want to clear status but usually the logs handle this
+            }
+        } catch (e) {
+            console.error('Failed to fetch status:', e);
+        }
+    }
+
     function browseFolder(inputId) {
         const input = document.getElementById(inputId);
         const startPath = input.value || '/media';
@@ -81,58 +131,52 @@
         });
     }
 
+    async function stopCleanup() {
+        if (!confirm('Are you sure you want to stop the cleanup operation? It will finish the current file and then stop.')) return;
+
+        try {
+            await fetch('/api/cleanup/stop', { method: 'POST' });
+            checkStatus();
+        } catch (e) {
+            alert('Failed to send stop signal: ' + e.message);
+        }
+    }
+
     async function startCleanup() {
         const origin = document.getElementById('origin').value;
         const malayalamDest = document.getElementById('malayalam_dest').value;
         const englishDest = document.getElementById('english_dest').value;
         const dryRun = document.getElementById('dry_run').checked;
-        const startBtn = document.getElementById('startBtn');
 
         if (!origin || !malayalamDest || !englishDest) {
             alert('Please select all required folders.');
             return;
         }
 
-        const statusDiv = document.getElementById('status');
-        statusDiv.style.display = 'block';
-        statusDiv.style.background = '#e3f2fd';
-        statusDiv.style.color = '#0d47a1';
-        statusDiv.style.border = '1px solid #bbdefb';
-        statusDiv.innerHTML = '⏳ <strong>Cleanup process initiated...</strong><br>Scanning directories and calculating file scores. This may take a few minutes depending on library size.';
-
+        const startBtn = document.getElementById('startBtn');
         startBtn.disabled = true;
         startBtn.style.opacity = '0.6';
 
         try {
-            const url = `/api/cleanup/start?origin=${encodeURIComponent(origin)}&malayalam_dest=${encodeURIComponent(malayalamDest)}&english_dest=${encodeURIComponent(englishDest)}&dry_run=${dryRun}`;
-            const response = await fetch(url, { method: 'POST' });
+            const response = await fetch('/api/cleanup/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    origin_dir: origin,
+                    malayalam_dest: malayalam_dest,
+                    english_dest: english_dest,
+                    dry_run: dryRun
+                })
+            });
             const data = await response.json();
 
-            if (data.error) {
-                statusDiv.style.background = '#ffebee';
-                statusDiv.style.color = '#c62828';
-                statusDiv.style.border = '1px solid #ffcdd2';
-                statusDiv.innerHTML = `❌ <strong>Operation Failed</strong><br>${data.error}`;
+            if (data.status === 'error' || data.error) {
+                alert('Error: ' + (data.message || data.error));
             } else {
-                statusDiv.style.background = '#e8f5e9';
-                statusDiv.style.color = '#1b5e20';
-                statusDiv.style.border = '1px solid #c8e6c9';
-
-                const modeText = dryRun ? '<span style="color: #f57c00;">DRY RUN</span>' : '<span style="color: #d32f2f;">LIVE MODE</span>';
-
-                statusDiv.innerHTML = `
-                    <div style="font-size: 18px; margin-bottom: 10px;">✅ <strong>Cleanup Successfully Started!</strong></div>
-                    <div><strong>Mode:</strong> ${modeText}</div>
-                    <div style="margin-top: 10px;">The background worker is now processing your files. You can close this page or stay to monitor progress.</div>
-                    <div style="margin-top: 15px;">
-                        <a href="/" class="btn btn-primary" style="text-decoration: none; display: inline-block;">Go to Dashboard to View Logs</a>
-                    </div>
-                `;
+                checkStatus();
             }
         } catch (e) {
-            statusDiv.style.background = '#ffebee';
-            statusDiv.style.color = '#c62828';
-            statusDiv.innerHTML = `❌ <strong>Network Error</strong><br>Failed to connect to the server: ${e.message}`;
+            alert('Failed to start cleanup: ' + e.message);
         } finally {
             startBtn.disabled = false;
             startBtn.style.opacity = '1';

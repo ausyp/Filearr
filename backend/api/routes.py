@@ -42,48 +42,68 @@ async def cleanup_page(request: Request):
         "config": config
     })
 
+from pydantic import BaseModel
+
+class CleanupRequest(BaseModel):
+    origin_dir: str
+    malayalam_dest: str
+    english_dest: str
+    dry_run: bool = True
+
 @router.post("/api/cleanup/start")
-async def start_cleanup(background_tasks: BackgroundTasks, origin: str, malayalam_dest: str, english_dest: str, dry_run: bool = True):
+async def start_cleanup(request: CleanupRequest, background_tasks: BackgroundTasks):
+    from backend.core.cleanup import run_manual_cleanup, cleanup_manager
     import os
     
     # Relaxed root: allow anything under /media (our primary volume)
     ALLOWED_ROOTS = ["/media"]
     
     # Safety guard: ensure paths start with allowed roots
-    if not any(origin.startswith(root) for root in ALLOWED_ROOTS):
-        logger.error(f"Invalid origin path: {origin}. Must start with {' or '.join(ALLOWED_ROOTS)}")
+    if not any(request.origin_dir.startswith(root) for root in ALLOWED_ROOTS):
+        logger.error(f"Invalid origin path: {request.origin_dir}. Must start with {' or '.join(ALLOWED_ROOTS)}")
         return {"error": f"Invalid origin path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
     
-    if not any(malayalam_dest.startswith(root) for root in ALLOWED_ROOTS):
-        logger.error(f"Invalid Malayalam destination path: {malayalam_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
+    if not any(request.malayalam_dest.startswith(root) for root in ALLOWED_ROOTS):
+        logger.error(f"Invalid Malayalam destination path: {request.malayalam_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
         return {"error": f"Invalid Malayalam destination path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
     
-    if not any(english_dest.startswith(root) for root in ALLOWED_ROOTS):
-        logger.error(f"Invalid English destination path: {english_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
+    if not any(request.english_dest.startswith(root) for root in ALLOWED_ROOTS):
+        logger.error(f"Invalid English destination path: {request.english_dest}. Must start with {' or '.join(ALLOWED_ROOTS)}")
         return {"error": f"Invalid English destination path. Must start with {' or '.join(ALLOWED_ROOTS)}"}
     
-    # All validations passed, start cleanup
-    try:
-        files_present = os.listdir(origin)
-        file_count = len([f for f in files_present if os.path.isfile(os.path.join(origin, f))])
-        logger.info(f"API Check: Found {file_count} files in {origin}")
-    except Exception as e:
-        logger.error(f"API Check failed for {origin}: {e}")
-        files_present = []
-        file_count = 0
+    # Check if a cleanup is already running
+    if cleanup_manager.is_running:
+        return {"status": "error", "message": "Cleanup already in progress"}
 
-    background_tasks.add_task(run_manual_cleanup, origin, malayalam_dest, english_dest, dry_run)
+    # All validations passed, start cleanup
+    background_tasks.add_task(
+        run_manual_cleanup,
+        request.origin_dir,
+        request.malayalam_dest,
+        request.english_dest,
+        request.dry_run
+    )
+    
     return {
-        "status": "Cleanup started", 
-        "mode": "dry_run" if dry_run else "live",
-        "diagnostic_files_found": file_count,
-        "path_scanned": origin
+        "status": "success", 
+        "message": "Cleanup started in background",
+        "mode": "dry_run" if request.dry_run else "live"
     }
-    
-    if "error" in result:
-        return JSONResponse(status_code=500, content=result)
-    
-    return result
+
+@router.post("/api/cleanup/stop")
+async def stop_cleanup():
+    from backend.core.cleanup import cleanup_manager
+    cleanup_manager.stop()
+    return {"status": "success", "message": "Stop signal sent"}
+
+@router.get("/api/cleanup/status")
+async def get_cleanup_status():
+    from backend.core.cleanup import cleanup_manager
+    return {
+        "is_running": cleanup_manager.is_running,
+        "should_stop": cleanup_manager.should_stop,
+        "current_file": cleanup_manager.current_file
+    }
 
 @router.get("/api/logs/errors")
 async def get_error_logs(limit: int = 50, db: Session = Depends(get_db)):

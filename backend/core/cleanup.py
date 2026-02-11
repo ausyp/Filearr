@@ -47,6 +47,27 @@ def log_error(source: str, message: str, level: str = "ERROR", tb: str = None):
     finally:
         db.close()
 
+class CleanupManager:
+    def __init__(self):
+        self.is_running = False
+        self.should_stop = False
+        self.current_file = ""
+
+    def start(self):
+        self.is_running = True
+        self.should_stop = False
+
+    def stop(self):
+        if self.is_running:
+            self.should_stop = True
+
+    def finish(self):
+        self.is_running = False
+        self.should_stop = False
+        self.current_file = ""
+
+cleanup_manager = CleanupManager()
+
 def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, dry_run: bool = True):
     """
     Scans origin_dir and processes files, routing them based on detected language.
@@ -57,79 +78,92 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
     from backend.core.quality import get_quality_score
     from backend.core.file_ops import move_file
     
+    cleanup_manager.start()
     logger.info(f"Starting manual cleanup: Origin={origin_dir}, Malayalam={malayalam_dest}, English={english_dest}, DryRun={dry_run}")
     
     log_cleanup("scan", origin_dir, None, "success", f"Started cleanup (dry_run={dry_run})")
     
-    if not os.path.exists(origin_dir):
-        error_msg = f"Origin directory {origin_dir} does not exist."
-        logger.error(error_msg)
-        log_error("cleanup", error_msg, "ERROR")
-        raise FileNotFoundError(error_msg)
+    try:
+        if not os.path.exists(origin_dir):
+            error_msg = f"Origin directory {origin_dir} does not exist."
+            logger.error(error_msg)
+            log_error("cleanup", error_msg, "ERROR")
+            raise FileNotFoundError(error_msg)
 
-    processed_count = 0
-    moved_count = 0
-    failed_count = 0
-    
-    for root, dirs, files in os.walk(origin_dir):
-        logger.info(f"Scanning directory: {root} (Found {len(files)} files)")
-        if not files:
-            continue
-            
-        for file in files:
-            file_path = os.path.join(root, file)
-            
-            # Skip non-media files
-            if not file.lower().endswith(('.mkv', '.mp4', '.avi', '.mov')):
+        processed_count = 0
+        moved_count = 0
+        failed_count = 0
+        
+        for root, dirs, files in os.walk(origin_dir):
+            if cleanup_manager.should_stop:
+                logger.info("Cleanup operation cancelled by user.")
+                break
+
+            logger.info(f"Scanning directory: {root} (Found {len(files)} files)")
+            if not files:
                 continue
+                
+            for file in files:
+                if cleanup_manager.should_stop:
+                    break
 
-            logger.info(f"Checking file: {file}")
-            try:
-                # 1. Get Metadata (Renaming starts here)
-                metadata = get_movie_metadata(file)
-                if not metadata:
-                    logger.warning(f"Could not identify movie for {file}")
+                file_path = os.path.join(root, file)
+                cleanup_manager.current_file = file
+                
+                # Skip non-media files
+                if not file.lower().endswith(('.mkv', '.mp4', '.avi', '.mov')):
                     continue
 
-                # 2. Detect Language & Quality
-                from backend.core.language import get_refined_language
-                lang_code = get_refined_language(file_path, metadata)
-                quality = get_quality_score(file_path)
+                logger.info(f"Checking file: {file}")
+                try:
+                    # 1. Get Metadata (Renaming starts here)
+                    metadata = get_movie_metadata(file)
+                    if not metadata:
+                        logger.warning(f"Could not identify movie for {file}")
+                        continue
 
-                # 3. Make Decision (Using overrides for manual destinations)
-                decision = decide(
-                    file_path=file_path,
-                    language=lang_code,
-                    quality_score=quality,
-                    is_cam=False, # Manual cleanup assumes filtered files
-                    tmdb_info=metadata,
-                    movies_dir_override=english_dest,
-                    mal_dir_override=malayalam_dest
-                )
-                
-                dest_path = decision.destination
-                
-                if dry_run:
-                    logger.info(f"[DRY RUN] Would move {file_path} to {dest_path} (Lang Code: {lang_code})")
-                    log_cleanup("dry_run", file_path, dest_path, "success", f"Language Code: {lang_code}")
-                else:
-                    # 4. Execute Move/Rename
-                    # Shared move_file handles directory creation and logging
-                    if move_file(file_path, dest_path):
-                        log_cleanup("move", file_path, dest_path, "success", f"Language Code: {lang_code}")
-                        moved_count += 1
-                    else:
-                        raise Exception(f"Move failed for {file_path}")
-                
-                processed_count += 1
-                        
-            except Exception as e:
-                error_msg = f"Error processing {file_path}: {str(e)}"
-                logger.error(error_msg)
-                log_error("cleanup", error_msg, "ERROR", traceback.format_exc())
-                log_cleanup("move", file_path, None, "failed", str(e))
-                failed_count += 1
+                    # 2. Detect Language & Quality
+                    from backend.core.language import get_refined_language
+                    lang_code = get_refined_language(file_path, metadata)
+                    quality = get_quality_score(file_path)
+
+                    # 3. Make Decision (Using overrides for manual destinations)
+                    decision = decide(
+                        file_path=file_path,
+                        language=lang_code,
+                        quality_score=quality,
+                        is_cam=False, # Manual cleanup assumes filtered files
+                        tmdb_info=metadata,
+                        movies_dir_override=english_dest,
+                        mal_dir_override=malayalam_dest
+                    )
                     
-    summary = f"Summary: Processed {processed_count} files, Moved {moved_count}, Failed {failed_count}"
-    logger.info(summary)
-    log_cleanup("scan", origin_dir, None, "success", summary)
+                    dest_path = decision.destination
+                    
+                    if dry_run:
+                        logger.info(f"[DRY RUN] Would move {file_path} to {dest_path} (Lang Code: {lang_code})")
+                        log_cleanup("dry_run", file_path, dest_path, "success", f"Language Code: {lang_code}")
+                    else:
+                        # 4. Execute Move/Rename
+                        # Shared move_file handles directory creation and logging
+                        if move_file(file_path, dest_path):
+                            log_cleanup("move", file_path, dest_path, "success", f"Language Code: {lang_code}")
+                            moved_count += 1
+                        else:
+                            raise Exception(f"Move failed for {file_path}")
+                    
+                    processed_count += 1
+                            
+                except Exception as e:
+                    error_msg = f"Error processing {file_path}: {str(e)}"
+                    logger.error(error_msg)
+                    log_error("cleanup", error_msg, "ERROR", traceback.format_exc())
+                    log_cleanup("move", file_path, None, "failed", str(e))
+                    failed_count += 1
+                        
+        status = "cancelled" if cleanup_manager.should_stop else "success"
+        summary = f"Summary: Processed {processed_count} files, Moved {moved_count}, Failed {failed_count} ({status})"
+        logger.info(summary)
+        log_cleanup("scan", origin_dir, None, status, summary)
+    finally:
+        cleanup_manager.finish()

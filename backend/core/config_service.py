@@ -40,7 +40,9 @@ class ConfigService:
                 setting = SystemSetting(key=key, value=value)
                 db.add(setting)
             else:
+                old_value = setting.value
                 setting.value = value
+                logger.info(f"Updated setting {key}: {old_value} -> {value}")
             db.commit()
             return True
         except Exception as e:
