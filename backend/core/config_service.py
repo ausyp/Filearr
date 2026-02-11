@@ -60,6 +60,10 @@ class ConfigService:
             "TMDB_API_KEY": env_settings.TMDB_API_KEY,
             "INPUT_DIR": env_settings.INPUT_DIR,
             "OUTPUT_DIR": env_settings.OUTPUT_DIR,
+            "MOVIES_DIR": env_settings.MOVIES_DIR,
+            "MALAYALAM_DIR": env_settings.MALAYALAM_DIR,
+            "REJECTED_DIR": env_settings.REJECTED_DIR,
+            "TRASH_DIR": env_settings.TRASH_DIR,
         }
         
         # Overlay DB settings

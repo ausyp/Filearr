@@ -6,8 +6,9 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # Paths
-    INPUT_DIR: str = "/input"
-    OUTPUT_DIR: str = "/output"
+    # Paths relative to container
+    INPUT_DIR: str = "/media/downloads"
+    OUTPUT_DIR: str = "/media/movies"
     DATA_DIR: str = "/data"
     
     # TMDB Settings
@@ -16,9 +17,11 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = f"sqlite:///{DATA_DIR}/filearr.db"
     
-    # Clean up settings
-    TRASH_DIR: str = f"{OUTPUT_DIR}/.trash"
-    REJECTED_DIR: str = f"{OUTPUT_DIR}/.rejected"
+    # Clean up settings (Defaults, can be overridden by env or DB)
+    TRASH_DIR: str = os.getenv("TRASH_DIR", f"{OUTPUT_DIR}/.trash")
+    REJECTED_DIR: str = os.getenv("REJECTED_DIR", f"{OUTPUT_DIR}/.rejected")
+    MOVIES_DIR: str = os.getenv("MOVIES_DIR", f"{OUTPUT_DIR}/movies")
+    MALAYALAM_DIR: str = os.getenv("MALAYALAM_DIR", f"{OUTPUT_DIR}/malayalam-movies")
     
     class Config:
         env_file = ".env"

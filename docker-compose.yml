@@ -8,11 +8,20 @@ services:
     ports:
       - "8090:8000"
     volumes:
-      - /mnt/downloads:/input
-      - /mnt/media:/output
+      # Recommended: Mount your entire media library to one path (e.g., /media)
+      # This allows you to browse and select input/output folders freely.
+      - /path/to/your/media:/media
+
+      # Persistence for database and logs
       - ./data:/data
+      # Legacy separate mounts (Optional - if you prefer strict separation)
+      # - /path/to/downloads:/input
+      # - /path/to/movies:/output
+
     environment:
       - TMDB_API_KEY=${TMDB_API_KEY}
-      - INPUT_DIR=/input
-      - OUTPUT_DIR=/output
+      # Default paths for single-volume setup (change via Settings UI if needed)
+      - INPUT_DIR=/media/downloads
+      - OUTPUT_DIR=/media/movies
+      - DATA_DIR=/data
       - DATA_DIR=/data

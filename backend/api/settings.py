@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Request, Depends, HTTPException, Query
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from backend.core.config_service import config_service
+from backend.core.directory_service import directory_service
 import logging
+import os
 
 router = APIRouter()
 templates = Jinja2Templates(directory="frontend/templates")
@@ -23,7 +25,11 @@ async def save_settings(
     form = await request.form()
     
     # Save known settings
-    keys = ["TMDB_API_KEY", "INPUT_DIR", "OUTPUT_DIR"]
+    keys = [
+        "TMDB_API_KEY", 
+        "INPUT_DIR", "OUTPUT_DIR", 
+        "MOVIES_DIR", "MALAYALAM_DIR", "REJECTED_DIR", "TRASH_DIR"
+    ]
     
     for key in keys:
         if key in form:
@@ -31,3 +37,14 @@ async def save_settings(
             
     # Redirect back to settings with success message (simplified)
     return RedirectResponse(url="/settings?saved=true", status_code=303)
+
+@router.get("/api/filesystem/list")
+async def list_filesystem(path: str = Query(default="/")):
+    try:
+        data = directory_service.list_directories(path)
+        if "error" in data:
+            return JSONResponse(status_code=400, content=data)
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Error listing directory {path}: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})

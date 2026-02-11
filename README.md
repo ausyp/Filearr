@@ -47,11 +47,19 @@ Filearr is a comprehensive, Dockerized application for automating movie organiza
 
 ## Directory Structure
 
-- `/input`: Watch folder for new downloads.
-- `/output/movies`: Destination for non-Malayalam movies.
-- `/output/malayalam-movies`: Destination for Malayalam movies.
-- `/output/.rejected`: Quarantine folder for CAM/TS copies.
-- `/output/.trash`: Deleted files (from upgrades).
+We recommend mounting a single volume (e.g., your entire media library) to `/media` inside the container. This allows you to freely select input and output folders using the web UI.
+
+**Recommended Docker Volume:**
+- `/path/to/your/library:/media`
+
+**Default Internal Paths:**
+- Input: `/media/downloads`
+- Movies: `/media/movies`
+- Malayalam Movies: `/media/movies/malayalam` (or similar, configurable)
+- Rejected: `/media/movies/.rejected`
+- Trash: `/media/movies/.trash`
+
+You can change all these paths in the **Settings** page.
 
 ## Development
 
