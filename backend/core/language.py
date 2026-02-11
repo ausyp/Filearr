@@ -67,3 +67,29 @@ def detect_language(path):
     except Exception as e:
         logger.error(f"Language detection failed for {path}: {e}")
         return 'und'
+
+def get_refined_language(path, metadata=None):
+    """
+    Combines technical detection, filename keywords, and TMDB metadata
+    to find the most accurate language for routing.
+    """
+    # 1. Technical & Filename detection
+    lang = detect_language(path)
+    
+    # 2. TMDB Fallback if undetermined or English (to verify regional content)
+    if (lang == 'und' or lang == 'eng') and metadata:
+        tmdb_lang = metadata.get('original_language', 'und')
+        # Map target languages specifically (TMDB use 2-letter codes)
+        mapping = {
+            'ml': 'mal', # Malayalam
+            'hi': 'hin', # Hindi
+            'ta': 'tam', # Tamil
+            'te': 'tel', # Telugu
+            'kn': 'kan', # Kannada
+        }
+        if tmdb_lang in mapping:
+            mapped_lang = mapping[tmdb_lang]
+            logger.info(f"Language fallback (TMDB): Mapping '{tmdb_lang}' to '{mapped_lang}' for {os.path.basename(path)}")
+            return mapped_lang
+            
+    return lang

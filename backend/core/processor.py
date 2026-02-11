@@ -24,7 +24,8 @@ def process_file(path):
         return
 
     # 3. Detect Language & Quality
-    language = detect_language(path)
+    from backend.core.language import get_refined_language
+    language = get_refined_language(path, metadata)
     quality = get_quality_score(path)
 
     logger.info(f"Analyzed {filename}: Movie={metadata['title']} ({metadata['year']}), Lang={language}, Quality={quality}")

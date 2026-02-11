@@ -46,7 +46,8 @@ def get_movie_metadata(filename):
                 'year': result['release_date'][:4] if result.get('release_date') else year,
                 'tmdb_id': result['id'],
                 'overview': result['overview'],
-                'poster_path': result['poster_path']
+                'poster_path': result['poster_path'],
+                'original_language': result.get('original_language', 'und')
             }
     except Exception as e:
         logger.error(f"TMDB lookup failed for {filename}: {e}")
