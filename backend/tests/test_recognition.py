@@ -15,6 +15,12 @@ class TestRecognition(unittest.TestCase):
         self.assertGreater(is_similar("Baby Girl", "Baby Girl"), 0.9)
         self.assertLess(is_similar("Baby Girl", "Sugar Baby"), 0.6)
 
+    def test_similarity_strict_single_token(self):
+        self.assertEqual(is_similar("Arya", "Aryan"), 0.0)
+
+    def test_similarity_reduces_prefix_mismatch(self):
+        self.assertLess(is_similar("Terminator 2", "Angel Terminators 2"), 0.72)
+
     @patch('backend.core.tmdb.tmdb.Search')
     @patch('backend.core.tmdb.config_service')
     def test_get_movie_metadata_fallback(self, mock_config, mock_search):
@@ -97,6 +103,19 @@ class TestRecognition(unittest.TestCase):
         
         # Strict year lock should reject this TMDB match and fall back to guessed metadata
         self.assertEqual(result['year'], "2020")
+        self.assertIsNone(result['tmdb_id'])
+
+    @patch('backend.core.tmdb.tmdb.Search')
+    @patch('backend.core.tmdb.config_service')
+    def test_wrong_same_year_title_is_rejected(self, mock_config, mock_search):
+        mock_config.get_setting.return_value = "fake_key"
+        instance = mock_search.return_value
+
+        instance.movie.return_value = {'results': [
+            {'title': 'Angel Terminators 2', 'release_date': '1991-01-01', 'id': 100, 'overview': '', 'poster_path': ''}
+        ]}
+
+        result = get_movie_metadata("Terminator 2 - Judgment Day (1991).mkv")
         self.assertIsNone(result['tmdb_id'])
 
 if __name__ == '__main__':
