@@ -8,37 +8,21 @@ import re
 logger = logging.getLogger(__name__)
 
 def is_similar(str1, str2):
-    """Conservative similarity scorer to reduce catastrophic false positives."""
+    """Checks title similarity using sequence + token overlap scoring."""
     if not str1 or not str2:
         return 0.0
 
     s1 = str1.lower().strip()
     s2 = str2.lower().strip()
-
     seq_ratio = difflib.SequenceMatcher(None, s1, s2).ratio()
 
-    # Handle joined-vs-split titles: "Babygirl" vs "Baby Girl".
-    if re.sub(r'[^a-z0-9]+', '', s1) == re.sub(r'[^a-z0-9]+', '', s2):
-        return max(seq_ratio, 0.95)
-
-    tokens1 = [t for t in re.split(r"[^a-z0-9]+", s1) if t]
-    tokens2 = [t for t in re.split(r"[^a-z0-9]+", s2) if t]
+    tokens1 = {t for t in s1.replace('.', ' ').replace('-', ' ').split() if t}
+    tokens2 = {t for t in s2.replace('.', ' ').replace('-', ' ').split() if t}
     if not tokens1 or not tokens2:
         return seq_ratio
 
-    # For single-token titles (Arya vs Aryan), require exact token equality.
-    if len(tokens1) == 1 and len(tokens2) == 1:
-        return 1.0 if tokens1[0] == tokens2[0] else 0.0
-
-    set1, set2 = set(tokens1), set(tokens2)
-    overlap = len(set1 & set2) / max(len(set1), len(set2))
-
-    # Prevent "Terminator 2" matching "Angel Terminators 2".
-    if tokens1[0] != tokens2[0] and overlap < 0.8:
-        return min(overlap, seq_ratio * 0.6)
-
-    # Keep score conservative: both overlap and sequence should be decent.
-    return (overlap * 0.7) + (seq_ratio * 0.3)
+    overlap = len(tokens1 & tokens2) / max(len(tokens1), len(tokens2))
+    return max(seq_ratio, overlap)
 
 def test_tmdb_api(api_key):
     """

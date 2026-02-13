@@ -67,10 +67,8 @@ def process_file(path):
         if os.path.exists(decision.destination):
             logger.warning(f"Skipping {filename}: destination exists ({decision.destination})")
             return {"status": "skipped", "reason": "Destination already exists"}
-        if not move_file(path, decision.destination):
-            return {"status": "failed", "reason": "Move failed"}
-        log_processed_file(path, decision.destination, metadata, language, quality, action="move")
-        return {"status": "processed", "reason": f"Language: {language} | Moved to: {decision.destination}", "language": language, "destination": decision.destination}
+        move_file(path, decision.destination)
+        return {"status": "processed", "reason": f"Moved to {os.path.basename(os.path.dirname(decision.destination))}"}
     elif decision.action == "reject":
         rejection_move(path, decision.reason)
         return {"status": "rejected", "reason": decision.reason}

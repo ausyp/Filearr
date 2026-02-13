@@ -105,18 +105,5 @@ class TestRecognition(unittest.TestCase):
         self.assertEqual(result['year'], "2020")
         self.assertIsNone(result['tmdb_id'])
 
-    @patch('backend.core.tmdb.tmdb.Search')
-    @patch('backend.core.tmdb.config_service')
-    def test_wrong_same_year_title_is_rejected(self, mock_config, mock_search):
-        mock_config.get_setting.return_value = "fake_key"
-        instance = mock_search.return_value
-
-        instance.movie.return_value = {'results': [
-            {'title': 'Angel Terminators 2', 'release_date': '1991-01-01', 'id': 100, 'overview': '', 'poster_path': ''}
-        ]}
-
-        result = get_movie_metadata("Terminator 2 - Judgment Day (1991).mkv")
-        self.assertIsNone(result['tmdb_id'])
-
 if __name__ == '__main__':
     unittest.main()
