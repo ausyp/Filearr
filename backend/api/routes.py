@@ -171,10 +171,11 @@ async def get_cleanup_logs(limit: int = 100, db: Session = Depends(get_db)):
         "details": log.details
     } for log in cleanup_logs]
 
-@router.get("/monitoring", response_class=HTMLResponse)
-async def monitoring_page(request: Request):
-    """Monitoring dashboard page"""
-    return templates.TemplateResponse("monitoring.html", {"request": request})
+@router.get("/monitoring")
+async def monitoring_redirect():
+    """Redirect legacy monitoring link to dashboard"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/")
 
 @router.get("/api/monitoring/stats")
 async def get_monitoring_stats(db: Session = Depends(get_db)):

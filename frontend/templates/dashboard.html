@@ -1,19 +1,55 @@
 {% extends "base.html" %}
 
 {% block title %}Dashboard{% endblock %}
-{% block header %}Dashboard{% endblock %}
+{% block header %}System Dashboard{% endblock %}
 
 {% block content %}
+
+<!-- System Status Card -->
+<div class="card" style="border-left: 4px solid #2e7d32;">
+    <h2>🟢 System Status</h2>
+    <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px;">
+        <div class="stat-box">
+            <div class="stat-label">Watcher Status</div>
+            <div class="stat-value" id="watcherStatus" style="font-size: 18px;">Loading...</div>
+            <div id="watchedPath" style="font-size: 11px; color: #666; margin-top: 5px; word-break: break-all;"></div>
+            <div style="margin-top: 10px; display: flex; gap: 5px; justify-content: center;">
+                <button onclick="controlWatcher('start')" class="btn"
+                    style="padding: 4px 8px; font-size: 11px;">Start</button>
+                <button onclick="controlWatcher('stop')" class="btn btn-secondary"
+                    style="padding: 4px 8px; font-size: 11px;">Stop</button>
+                <button onclick="controlWatcher('restart')" class="btn"
+                    style="padding: 4px 8px; font-size: 11px;">Restart</button>
+            </div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Processed Today</div>
+            <div class="stat-value" id="processedToday">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Ignored Today</div>
+            <div class="stat-value" id="ignoredToday">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Errors Today</div>
+            <div class="stat-value" id="errorsToday">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Last Activity</div>
+            <div class="stat-value" id="lastActivity" style="font-size: 14px;">Never</div>
+        </div>
+    </div>
+</div>
 
 <!-- System Errors Section (High Priority) -->
 {% if error_logs %}
 <div class="card" style="border-left: 4px solid #c62828;">
-    <h2 style="color: #c62828;">⚠️ System Errors</h2>
+    <h2 style="color: #c62828;">⚠️ Recent Errors</h2>
     <table>
         <thead>
             <tr>
                 <th>Time</th>
-                <th>Level</th>
                 <th>Source</th>
                 <th>Message</th>
             </tr>
@@ -21,20 +57,14 @@
         <tbody>
             {% for log in error_logs %}
             <tr onclick="toggleTraceback({{ log.id }})" style="cursor: pointer;">
-                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                <td>
-                    <span
-                        class="status-badge {% if log.level == 'ERROR' %}status-danger{% else %}status-warning{% endif %}">
-                        {{ log.level }}
-                    </span>
-                </td>
-                <td>{{ log.source }}</td>
+                <td style="white-space: nowrap;">{{ log.timestamp.strftime('%H:%M:%S') }}</td>
+                <td><span class="status-badge status-danger">{{ log.source }}</span></td>
                 <td>{{ log.message }}</td>
             </tr>
             {% if log.traceback %}
             <tr id="traceback-{{ log.id }}" style="display: none;">
-                <td colspan="4" style="background: #f5f5f5; padding: 10px;">
-                    <pre style="margin: 0; font-size: 11px; overflow-x: auto;">{{ log.traceback }}</pre>
+                <td colspan="3" style="background: #fafafa; padding: 10px; border-top: 1px solid #eee;">
+                    <pre style="margin: 0; font-size: 11px; overflow-x: auto; color: #d32f2f;">{{ log.traceback }}</pre>
                 </td>
             </tr>
             {% endif %}
@@ -44,63 +74,96 @@
 </div>
 {% endif %}
 
-<!-- Live Activity Section -->
+<!-- Live Activity Feed -->
 <div class="card">
-    <h2>Live Activity</h2>
-    <p>System is running. Watching <code>{{ watch_path }}</code>.</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0;">📡 Live Activity</h2>
+        <span style="font-size: 12px; color: #666;" id="refreshTimer">Updating...</span>
+    </div>
 
-    <h3>Recent Processed Files</h3>
-    {% if recent_files %}
-    <table>
-        <thead>
-            <tr>
-                <th>Filename</th>
-                <th>Movie</th>
-                <th>Language</th>
-                <th>Quality</th>
-                <th>Action</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for file in recent_files %}
-            <tr>
-                <td>{{ file.filename }}</td>
-                <td>{{ file.movie_name }} ({{ file.year }})</td>
-                <td>{{ file.language }}</td>
-                <td><span class="status-badge status-warning">{{ file.quality_score }}</span></td>
-                <td>{{ file.action }}</td>
-                <td>{{ file.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>No files processed yet.</p>
-    {% endif %}
+    <div id="activityFeed">
+        <p style="color: #666; text-align: center; padding: 20px;">Loading live activity...</p>
+    </div>
 </div>
 
-<!-- Cleanup Operations Section -->
+<!-- Historical Data Tabs/Accordions Concept (Simple list for now) -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <!-- Recent Processed (Static Fallback/History) -->
+    <div class="card">
+        <h3>✅ Processed History</h3>
+        <div style="max-height: 400px; overflow-y: auto;">
+            {% if recent_files %}
+            <table style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th>Movie</th>
+                        <th>Lang</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in recent_files %}
+                    <tr>
+                        <td><strong>{{ file.movie_name }}</strong> ({{ file.year }})</td>
+                        <td><span class="status-badge status-success">{{ file.language }}</span></td>
+                        <td style="font-size: 11px; color: #666;">{{ file.created_at.strftime('%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="font-size: 13px; color: #666;">No files processed yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Rejected / Quarantined -->
+    <div class="card">
+        <h3>🚫 Rejected / Quarantine</h3>
+        <div style="max-height: 400px; overflow-y: auto;">
+            {% if rejected_files %}
+            <table style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in rejected_files %}
+                    <tr>
+                        <td style="word-break: break-all;">{{ file.filename }}</td>
+                        <td><span class="status-badge status-danger">{{ file.reason }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="font-size: 13px; color: #666;">No rejected files.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Cleanup Section -->
 {% if cleanup_logs %}
 <div class="card">
-    <h3>🧹 Cleanup Operations</h3>
-    <table>
+    <h3>🧹 Recent Cleanup Operations</h3>
+    <table style="font-size: 13px;">
         <thead>
             <tr>
                 <th>Time</th>
                 <th>Operation</th>
                 <th>File</th>
-                <th>Destination</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody>
             {% for log in cleanup_logs %}
             <tr>
-                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>{{ log.timestamp.strftime('%H:%M:%S') }}</td>
                 <td>{{ log.operation_type }}</td>
-                <td style="font-family: monospace; font-size: 12px;">{{ log.file_path }}</td>
-                <td style="font-family: monospace; font-size: 12px;">{{ log.destination or '-' }}</td>
+                <td style="font-family: monospace; font-size: 11px;">{{ log.file_path }}</td>
                 <td>
                     <span
                         class="status-badge {% if log.status == 'success' %}status-success{% elif log.status == 'failed' %}status-danger{% else %}status-warning{% endif %}">
@@ -114,44 +177,173 @@
 </div>
 {% endif %}
 
-<!-- Rejected / Quarantine Section -->
-<div class="card">
-    <h3>Rejected / Quarantine</h3>
-    {% if rejected_files %}
-    <table>
-        <thead>
-            <tr>
-                <th>Filename</th>
-                <th>Reason</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for file in rejected_files %}
-            <tr>
-                <td>{{ file.filename }}</td>
-                <td><span class="status-badge status-danger">{{ file.reason }}</span></td>
-                <td>{{ file.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>No rejected files.</p>
-    {% endif %}
-</div>
+<style>
+    .stat-box {
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #eee;
+    }
+
+    .stat-label {
+        font-size: 11px;
+        color: #666;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+
+    .stat-value {
+        font-size: 20px;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .activity-item {
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 6px;
+        border-left: 4px solid #ddd;
+        background: #fdfdfd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        border: 1px solid #f0f0f0;
+    }
+
+    .activity-item.processed {
+        border-left-color: #2e7d32;
+        background: #f1f8f1;
+    }
+
+    .activity-item.ignored {
+        border-left-color: #f57c00;
+        background: #fff8f1;
+    }
+
+    .activity-item.failed,
+    .activity-item.rejected {
+        border-left-color: #c62828;
+        background: #fff5f5;
+    }
+
+    .activity-item.detected {
+        border-left-color: #1976d2;
+        background: #f1f7ff;
+    }
+
+    .activity-time {
+        font-size: 11px;
+        color: #888;
+        white-space: nowrap;
+    }
+
+    .activity-file {
+        font-family: monospace;
+        flex: 1;
+        margin: 0 12px;
+        word-break: break-all;
+    }
+
+    .activity-action {
+        font-weight: bold;
+        font-size: 11px;
+        text-transform: uppercase;
+    }
+</style>
 
 <script>
     function toggleTraceback(logId) {
-        const tracebackRow = document.getElementById('traceback-' + logId);
-        if (tracebackRow) {
-            tracebackRow.style.display = tracebackRow.style.display === 'none' ? 'table-row' : 'none';
-        }
+        const row = document.getElementById('traceback-' + logId);
+        if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
     }
 
-    // Auto-refresh dashboard every 10 seconds
-    setTimeout(() => {
-        location.reload();
-    }, 10000);
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/monitoring/stats');
+            const data = await response.json();
+
+            document.getElementById('watcherStatus').textContent = data.watcher_status === 'running' ? '🟢 Running' : '🔴 Stopped';
+            document.getElementById('processedToday').textContent = data.processed_today;
+            document.getElementById('ignoredToday').textContent = data.ignored_today;
+            document.getElementById('errorsToday').textContent = data.errors_today;
+
+            const watchedPathDiv = document.getElementById('watchedPath');
+            watchedPathDiv.textContent = data.watched_path ? `Path: ${data.watched_path}` : '';
+
+            if (data.last_activity) {
+                const lastTime = new Date(data.last_activity);
+                document.getElementById('lastActivity').textContent = lastTime.toLocaleTimeString();
+            }
+        } catch (e) { console.error('Error loading stats:', e); }
+    }
+
+    async function controlWatcher(action) {
+        if (!confirm(`Confirm ${action} watcher?`)) return;
+        try {
+            await fetch(`/api/monitoring/watcher/${action}`, { method: 'POST' });
+            loadStats();
+        } catch (e) { alert(`Failed to ${action} watcher`); }
+    }
+
+    async function loadActivity() {
+        try {
+            const response = await fetch('/api/monitoring/activity?limit=15');
+            const activities = await response.json();
+            const feed = document.getElementById('activityFeed');
+
+            if (activities.length === 0) {
+                feed.innerHTML = '<p style="color: #666; text-align: center;">No activity recorded yet.</p>';
+                return;
+            }
+
+            let html = '';
+            activities.forEach(activity => {
+                const time = new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const filename = activity.file_path.split('/').pop() || activity.file_path;
+                const actionClass = activity.action;
+                const reason = activity.reason ? `<div style="font-size: 11px; color: #777;">${activity.reason}</div>` : '';
+
+                let ignoreButton = '';
+                if (activity.action === 'detected' || activity.action === 'failed') {
+                    ignoreButton = `<button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-left:10px;" onclick="ignoreFile('${activity.file_path}', '${filename}')">Ignore</button>`;
+                }
+
+                html += `
+                    <div class="activity-item ${actionClass}">
+                        <span class="activity-time">${time}</span>
+                        <span class="activity-file"><strong>${filename}</strong>${reason}</span>
+                        <div style="display: flex; align-items: center;">
+                            <span class="activity-action">${activity.action}</span>
+                            ${ignoreButton}
+                        </div>
+                    </div>
+                `;
+            });
+            feed.innerHTML = html;
+            document.getElementById('refreshTimer').textContent = 'Updated: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch (e) { feed.innerHTML = '<p style="color: red;">Error loading activity</p>'; }
+    }
+
+    async function ignoreFile(filePath, filename) {
+        const reason = prompt(`Ignore "${filename}"?\n\nReason:`, 'Manually ignored');
+        if (reason === null) return;
+        try {
+            const resp = await fetch(`/api/ignore/file/add?file_path=${encodeURIComponent(filePath)}&reason=${encodeURIComponent(reason)}`, { method: 'POST' });
+            if (resp.ok) { loadActivity(); }
+        } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    // Initial load
+    loadStats();
+    loadActivity();
+
+    // Regular refresh (every 8 seconds to be less aggressive than 5, but responsive)
+    setInterval(() => {
+        loadStats();
+        loadActivity();
+    }, 8000);
 </script>
 {% endblock %}
