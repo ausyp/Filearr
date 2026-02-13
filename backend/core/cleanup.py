@@ -74,6 +74,7 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
     If dry_run is True, it simulates the actions.
     """
     from backend.core.tmdb import get_movie_metadata
+    from backend.core.safety import evaluate_safety, extract_filename_language
     from backend.core.decision import decide
     from backend.core.quality import get_quality_score
     from backend.core.file_ops import move_file
@@ -116,18 +117,27 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
 
                 logger.info(f"Checking file: {file}")
                 try:
-                    # 1. Get Metadata (Renaming starts here)
-                    metadata = get_movie_metadata(file)
-                    if not metadata:
-                        logger.warning(f"Could not identify movie for {file}")
+                    # 1. Mandatory safety checks before parsing / TMDB lookup
+                    allowed, reason, pre_guess = evaluate_safety(file_path)
+                    if not allowed:
+                        logger.warning(f"Skipping {file}: {reason}")
+                        log_cleanup("skip", file_path, None, "success", reason)
                         continue
 
-                    # 2. Detect Language & Quality
+                    # 2. Get Metadata (Renaming starts here)
+                    metadata = get_movie_metadata(file, pre_guess=pre_guess)
+                    if not metadata or not metadata.get('tmdb_id'):
+                        logger.warning(f"Could not confidently identify movie for {file}")
+                        log_cleanup("skip", file_path, None, "success", "Low TMDB confidence")
+                        continue
+
+                    # 3. Detect Language & Quality
                     from backend.core.language import get_refined_language
-                    lang_code = get_refined_language(file_path, metadata)
+                    filename_lang = extract_filename_language(file)
+                    lang_code = get_refined_language(file_path, metadata, filename_lang=filename_lang)
                     quality = get_quality_score(file_path)
 
-                    # 3. Make Decision (Using overrides for manual destinations)
+                    # 4. Make Decision (Using overrides for manual destinations)
                     decision = decide(
                         file_path=file_path,
                         language=lang_code,
@@ -140,11 +150,16 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                     
                     dest_path = decision.destination
                     
+                    if os.path.exists(dest_path):
+                        logger.warning(f"Skipping {file}: destination exists ({dest_path})")
+                        log_cleanup("skip", file_path, dest_path, "success", "Destination already exists")
+                        continue
+
                     if dry_run:
                         logger.info(f"[DRY RUN] Would move {file_path} to {dest_path} (Lang Code: {lang_code})")
                         log_cleanup("dry_run", file_path, dest_path, "success", f"Language Code: {lang_code}")
                     else:
-                        # 4. Execute Move/Rename
+                        # 5. Execute Move/Rename
                         # Shared move_file handles directory creation and logging
                         if move_file(file_path, dest_path):
                             log_cleanup("move", file_path, dest_path, "success", f"Language Code: {lang_code}")

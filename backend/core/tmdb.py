@@ -7,12 +7,21 @@ import difflib
 logger = logging.getLogger(__name__)
 
 def is_similar(str1, str2):
-    """
-    Checks if two strings are similar using SequenceMatcher.
-    """
+    """Checks title similarity using sequence + token overlap scoring."""
     if not str1 or not str2:
         return 0.0
-    return difflib.SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
+
+    s1 = str1.lower().strip()
+    s2 = str2.lower().strip()
+    seq_ratio = difflib.SequenceMatcher(None, s1, s2).ratio()
+
+    tokens1 = {t for t in s1.replace('.', ' ').replace('-', ' ').split() if t}
+    tokens2 = {t for t in s2.replace('.', ' ').replace('-', ' ').split() if t}
+    if not tokens1 or not tokens2:
+        return seq_ratio
+
+    overlap = len(tokens1 & tokens2) / max(len(tokens1), len(tokens2))
+    return max(seq_ratio, overlap)
 
 def test_tmdb_api(api_key):
     """
@@ -33,11 +42,11 @@ def test_tmdb_api(api_key):
         logger.error(f"TMDB validation failed: {e}")
         return False, str(e)
 
-def get_movie_metadata(filename):
+def get_movie_metadata(filename, pre_guess=None):
     tmdb_key = config_service.get_setting("TMDB_API_KEY")
     if tmdb_key:
         tmdb.API_KEY = tmdb_key
-    guess = guessit(filename)
+    guess = pre_guess or guessit(filename)
     title = guess.get('title')
     year = guess.get('year')
     
@@ -58,7 +67,7 @@ def get_movie_metadata(filename):
             similarity = is_similar(title, first_result['title'])
             
             # If high confidence, use it
-            if similarity > 0.8:
+            if similarity >= 0.7:
                 best_match = first_result
         
         # 2. Fallback search without year if no results or low similarity
@@ -82,10 +91,19 @@ def get_movie_metadata(filename):
                         best_similarity = sim
                         best_match = res
                 
-                # Final check: if even the best match is poor, we might want to discard it
-                if best_similarity < 0.6:
+                # Final check: reject low-confidence matches
+                if best_similarity < 0.7:
                     logger.warning(f"Best match for '{title}' has low similarity ({best_similarity:.2f}): {best_match['title']}")
                     best_match = None
+
+        if best_match:
+            # Strict year lock: when filename has a year, TMDB year must be within +/- 1.
+            tmdb_year_str = best_match.get('release_date', '')[:4]
+            if year and tmdb_year_str.isdigit() and abs(int(year) - int(tmdb_year_str)) > 1:
+                logger.warning(
+                    f"Year mismatch for '{title}': filename {year} vs TMDB {tmdb_year_str}. Skipping match."
+                )
+                best_match = None
 
         if best_match:
             tmdb_year_str = best_match.get('release_date', '')[:4]

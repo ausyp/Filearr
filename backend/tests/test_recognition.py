@@ -76,7 +76,7 @@ class TestRecognition(unittest.TestCase):
             {'title': 'The Raid', 'release_date': '2012-03-23', 'id': 9405, 'overview': 'SWAT', 'poster_path': ''}
         ]}
         
-        result = get_movie_metadata("The.Raid.Redemption.2011.1080p.mkv")
+        result = get_movie_metadata("The.Raid.2011.1080p.mkv")
         
         self.assertEqual(result['title'], "The Raid")
         self.assertEqual(result['year'], "2011") # Should use filename year because of 1-year tolerance
@@ -95,10 +95,9 @@ class TestRecognition(unittest.TestCase):
         
         result = get_movie_metadata("Old Movie (2020).mkv")
         
-        # In this case, it might still return it if similarity is high enough, 
-        # but it should use TMDB's year OR discard it if we implemented stricter checks.
-        # Current implementation uses TMDB year if similarity > 0.8
-        self.assertEqual(result['year'], "2015")
+        # Strict year lock should reject this TMDB match and fall back to guessed metadata
+        self.assertEqual(result['year'], "2020")
+        self.assertIsNone(result['tmdb_id'])
 
 if __name__ == '__main__':
     unittest.main()
