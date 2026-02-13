@@ -3,10 +3,33 @@ from backend.core.language import detect_language
 from backend.core.quality import get_quality_score
 from backend.core.decision import decide
 from backend.core.file_ops import move_file, rejection_move
+from backend.db.database import SessionLocal
+from backend.db.models import ProcessedFile
 from backend.core.tmdb import get_movie_metadata
 from backend.core.safety import evaluate_safety, extract_filename_language
 from loguru import logger
 import os
+
+
+def log_processed_file(path, destination, metadata, language, quality, action="move"):
+    db = SessionLocal()
+    try:
+        db.add(ProcessedFile(
+            filename=os.path.basename(path),
+            original_path=path,
+            destination_path=destination,
+            movie_name=metadata.get('title', 'Unknown'),
+            year=str(metadata.get('year', 'Unknown')),
+            language=language,
+            quality_score=quality,
+            action=action,
+        ))
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to log processed file {path}: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 def process_file(path):
     filename = os.path.basename(path)
@@ -45,8 +68,10 @@ def process_file(path):
         if os.path.exists(decision.destination):
             logger.warning(f"Skipping {filename}: destination exists ({decision.destination})")
             return {"status": "skipped", "reason": "Destination already exists"}
-        move_file(path, decision.destination)
-        return {"status": "processed", "reason": f"Moved to {os.path.basename(os.path.dirname(decision.destination))}"}
+        if not move_file(path, decision.destination):
+            return {"status": "failed", "reason": "Move failed"}
+        log_processed_file(path, decision.destination, metadata, language, quality, action="move")
+        return {"status": "processed", "reason": f"Language: {language} | Moved to: {decision.destination}", "language": language, "destination": decision.destination}
     elif decision.action == "reject":
         rejection_move(path, decision.reason)
         return {"status": "rejected", "reason": decision.reason}

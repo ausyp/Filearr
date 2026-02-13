@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, BackgroundTasks, Query
+from fastapi import APIRouter, Request, BackgroundTasks, Query, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from backend.db.database import get_db
@@ -171,6 +171,39 @@ async def get_cleanup_logs(limit: int = 100, db: Session = Depends(get_db)):
         "details": log.details
     } for log in cleanup_logs]
 
+@router.get("/api/processed/history")
+async def get_processed_history(limit: int = 50, db: Session = Depends(get_db)):
+    rows = db.query(ProcessedFile).order_by(ProcessedFile.created_at.desc()).limit(limit).all()
+    return [{
+        "id": r.id,
+        "filename": r.filename,
+        "original_path": r.original_path,
+        "destination_path": r.destination_path,
+        "movie_name": r.movie_name,
+        "year": r.year,
+        "language": r.language,
+        "quality_score": r.quality_score,
+        "action": r.action,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    } for r in rows]
+
+@router.post("/api/processed/reverse/{processed_id}")
+async def reverse_processed_change(processed_id: int, db: Session = Depends(get_db)):
+    from backend.core.file_ops import move_file
+    row = db.query(ProcessedFile).filter(ProcessedFile.id == processed_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Processed history item not found")
+
+    if not row.destination_path or not row.original_path:
+        raise HTTPException(status_code=400, detail="Missing source/destination path in history")
+
+    if not move_file(row.destination_path, row.original_path):
+        raise HTTPException(status_code=400, detail="Reverse move failed")
+
+    db.delete(row)
+    db.commit()
+    return {"status": "success", "message": "Change reversed"}
+
 @router.get("/monitoring")
 async def monitoring_redirect():
     """Redirect legacy monitoring link to dashboard"""
@@ -187,9 +220,8 @@ async def get_monitoring_stats(db: Session = Depends(get_db)):
     today = datetime.utcnow().date()
     
     # Count files processed today
-    processed_today = db.query(func.count(WatcherLog.id)).filter(
-        WatcherLog.action == "processed",
-        func.date(WatcherLog.timestamp) == today
+    processed_today = db.query(func.count(ProcessedFile.id)).filter(
+        func.date(ProcessedFile.created_at) == today
     ).scalar() or 0
     
     # Count errors today
@@ -239,17 +271,56 @@ async def restart_watcher():
 
 @router.get("/api/monitoring/activity")
 async def get_monitoring_activity(limit: int = 50, db: Session = Depends(get_db)):
-    """Get recent watcher activity"""
-    activity = db.query(WatcherLog).order_by(WatcherLog.timestamp.desc()).limit(limit).all()
-    
-    return [{
-        "id": log.id,
-        "timestamp": log.timestamp.isoformat(),
-        "event_type": log.event_type,
-        "file_path": log.file_path,
-        "action": log.action,
-        "reason": log.reason
-    } for log in activity]
+    """Get recent watcher + cleanup activity"""
+    watcher_rows = db.query(WatcherLog).order_by(WatcherLog.timestamp.desc()).limit(limit).all()
+    cleanup_rows = db.query(CleanupLog).order_by(CleanupLog.timestamp.desc()).limit(limit).all()
+
+    def parse_reason(reason: str):
+        language = None
+        destination = None
+        if reason:
+            parts = [p.strip() for p in reason.split('|')]
+            for part in parts:
+                low = part.lower()
+                if low.startswith('language:'):
+                    language = part.split(':', 1)[1].strip()
+                if low.startswith('moved to:'):
+                    destination = part.split(':', 1)[1].strip()
+        return language, destination
+
+    combined = []
+    for log in watcher_rows:
+        language, destination = parse_reason(log.reason or "")
+        combined.append({
+            "id": f"watcher-{log.id}",
+            "timestamp": log.timestamp.isoformat(),
+            "event_type": log.event_type,
+            "file_path": log.file_path,
+            "action": log.action,
+            "reason": log.reason,
+            "language": language,
+            "destination": destination,
+            "source": "watcher",
+        })
+
+    for log in cleanup_rows:
+        language = None
+        if log.details and 'Language Code:' in log.details:
+            language = log.details.split('Language Code:')[-1].strip()
+        combined.append({
+            "id": f"cleanup-{log.id}",
+            "timestamp": log.timestamp.isoformat(),
+            "event_type": log.operation_type,
+            "file_path": log.file_path,
+            "action": log.status if log.status else log.operation_type,
+            "reason": log.details,
+            "language": language,
+            "destination": log.destination,
+            "source": "cleanup",
+        })
+
+    combined.sort(key=lambda x: x['timestamp'], reverse=True)
+    return combined[:limit]
 
 @router.get("/api/ignore/patterns")
 async def get_ignore_patterns():

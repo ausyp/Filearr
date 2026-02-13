@@ -59,6 +59,14 @@
     </div>
 </div>
 
+<div class="card">
+    <h3>📜 Cleanup Activity Log</h3>
+    <p style="color:#666; font-size:13px;">Shows language detected and destination from cleanup/organise activity.</p>
+    <div id="cleanupActivityFeed" style="max-height:320px; overflow-y:auto; font-size:13px;">
+        <p style="color:#666;">Loading cleanup activity...</p>
+    </div>
+</div>
+
 <style>
     .input-group {
         display: flex;
@@ -83,7 +91,8 @@
 
     window.onload = function () {
         checkStatus();
-        pollInterval = setInterval(checkStatus, 3000);
+        loadCleanupActivity();
+        pollInterval = setInterval(() => { checkStatus(); loadCleanupActivity(); }, 3000);
     };
 
     async function checkStatus() {
@@ -144,6 +153,33 @@
             checkStatus();
         } catch (e) {
             alert('Failed to send stop signal: ' + e.message);
+        }
+    }
+
+
+    async function loadCleanupActivity() {
+        try {
+            const response = await fetch('/api/monitoring/activity?limit=40');
+            const activities = await response.json();
+            const feed = document.getElementById('cleanupActivityFeed');
+            const rows = activities.filter(a => a.source === 'cleanup' || a.destination);
+            if (!rows.length) {
+                feed.innerHTML = '<p style="color:#666;">No cleanup activity yet.</p>';
+                return;
+            }
+            feed.innerHTML = rows.map(a => {
+                const time = new Date(a.timestamp).toLocaleString();
+                const name = (a.file_path || '').split('/').pop();
+                const lang = a.language ? `<div><strong>Language:</strong> ${a.language}</div>` : '';
+                const dest = a.destination ? `<div style="word-break:break-all;"><strong>Destination:</strong> ${a.destination}</div>` : '';
+                const details = a.reason ? `<div style="color:#666;">${a.reason}</div>` : '';
+                return `<div style="border:1px solid #eee; border-left:4px solid #1976d2; border-radius:6px; padding:10px; margin:8px 0;">
+                    <div style="font-size:11px; color:#666;">${time}</div>
+                    <div><strong>${name || a.file_path}</strong></div>${lang}${dest}${details}
+                </div>`;
+            }).join('');
+        } catch (e) {
+            document.getElementById('cleanupActivityFeed').innerHTML = '<p style="color:red;">Failed to load cleanup activity.</p>';
         }
     }
 
