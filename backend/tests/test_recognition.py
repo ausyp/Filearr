@@ -15,6 +15,12 @@ class TestRecognition(unittest.TestCase):
         self.assertGreater(is_similar("Baby Girl", "Baby Girl"), 0.9)
         self.assertLess(is_similar("Baby Girl", "Sugar Baby"), 0.6)
 
+    def test_similarity_strict_single_token(self):
+        self.assertEqual(is_similar("Arya", "Aryan"), 0.0)
+
+    def test_similarity_reduces_prefix_mismatch(self):
+        self.assertLess(is_similar("Terminator 2", "Angel Terminators 2"), 0.7)
+
     @patch('backend.core.tmdb.tmdb.Search')
     @patch('backend.core.tmdb.config_service')
     def test_get_movie_metadata_fallback(self, mock_config, mock_search):

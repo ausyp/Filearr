@@ -92,28 +92,30 @@
     <div class="card">
         <h3>✅ Processed History</h3>
         <div style="max-height: 400px; overflow-y: auto;">
-            {% if recent_files %}
-            <table style="font-size: 13px;">
+            <table style="font-size: 13px; width:100%;">
                 <thead>
                     <tr>
                         <th>Movie</th>
                         <th>Lang</th>
                         <th>Time</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="processedHistoryBody">
+                    {% if recent_files %}
                     {% for file in recent_files %}
                     <tr>
                         <td><strong>{{ file.movie_name }}</strong> ({{ file.year }})</td>
                         <td><span class="status-badge status-success">{{ file.language }}</span></td>
                         <td style="font-size: 11px; color: #666;">{{ file.created_at.strftime('%m-%d %H:%M') }}</td>
+                        <td><button class="btn btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="reverseProcessed({{ file.id }})">Reverse</button></td>
                     </tr>
                     {% endfor %}
+                    {% else %}
+                    <tr><td colspan="4" style="font-size: 13px; color: #666;">No files processed yet.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
-            {% else %}
-            <p style="font-size: 13px; color: #666;">No files processed yet.</p>
-            {% endif %}
         </div>
     </div>
 
@@ -304,6 +306,8 @@
                 const time = new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const filename = activity.file_path.split('/').pop() || activity.file_path;
                 const actionClass = activity.action;
+                const langLine = activity.language ? `<div style="font-size:11px;color:#2e7d32;">Language: ${activity.language}</div>` : '';
+                const destLine = activity.destination ? `<div style="font-size:11px;color:#1565c0;word-break:break-all;">Moved to: ${activity.destination}</div>` : '';
                 const reason = activity.reason ? `<div style="font-size: 11px; color: #777;">${activity.reason}</div>` : '';
 
                 let ignoreButton = '';
@@ -314,7 +318,7 @@
                 html += `
                     <div class="activity-item ${actionClass}">
                         <span class="activity-time">${time}</span>
-                        <span class="activity-file"><strong>${filename}</strong>${reason}</span>
+                        <span class="activity-file"><strong>${filename}</strong>${langLine}${destLine}${reason}</span>
                         <div style="display: flex; align-items: center;">
                             <span class="activity-action">${activity.action}</span>
                             ${ignoreButton}
@@ -336,14 +340,55 @@
         } catch (e) { alert('Error: ' + e.message); }
     }
 
+
+    async function loadProcessedHistory() {
+        try {
+            const resp = await fetch('/api/processed/history?limit=50');
+            const rows = await resp.json();
+            const body = document.getElementById('processedHistoryBody');
+            if (!body) return;
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="4" style="font-size:13px;color:#666;">No files processed yet.</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.map(file => `
+                <tr>
+                    <td><strong>${file.movie_name || file.filename}</strong> (${file.year || 'Unknown'})<br><small style="color:#666;">${file.destination_path || ''}</small></td>
+                    <td><span class="status-badge status-success">${file.language || 'und'}</span></td>
+                    <td style="font-size:11px;color:#666;">${file.created_at ? new Date(file.created_at).toLocaleString() : ''}</td>
+                    <td><button class="btn btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="reverseProcessed(${file.id})">Reverse</button></td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error('Failed to load processed history', e);
+        }
+    }
+
+    async function reverseProcessed(id) {
+        if (!confirm('Reverse this processed change?')) return;
+        try {
+            const resp = await fetch(`/api/processed/reverse/${id}`, { method: 'POST' });
+            if (!resp.ok) {
+                const data = await resp.json();
+                throw new Error(data.detail || 'Reverse failed');
+            }
+            await loadProcessedHistory();
+            await loadActivity();
+        } catch (e) {
+            alert('Reverse failed: ' + e.message);
+        }
+    }
+
     // Initial load
     loadStats();
     loadActivity();
+    loadProcessedHistory();
 
     // Regular refresh (every 8 seconds to be less aggressive than 5, but responsive)
     setInterval(() => {
         loadStats();
         loadActivity();
+        loadProcessedHistory();
     }, 8000);
 </script>
 {% endblock %}

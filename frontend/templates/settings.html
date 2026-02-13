@@ -59,6 +59,20 @@
     </form>
 </div>
 
+
+<div class="card">
+    <h3>🛡️ Automation Safety & History</h3>
+    <ul style="color:#444; line-height:1.7;">
+        <li>Sample files and tiny files are skipped before TMDB lookup.</li>
+        <li>Strict year-lock + confidence checks are active to avoid wrong matches.</li>
+        <li>Dashboard now supports <strong>Reverse</strong> for processed history entries.</li>
+        <li>Live activity includes detected language and destination path.</li>
+    </ul>
+    <div id="settingsActivityPreview" style="max-height:220px; overflow-y:auto; font-size:13px; border:1px solid #eee; border-radius:6px; padding:10px;">
+        <p style="color:#666;">Loading latest activity...</p>
+    </div>
+</div>
+
 <!-- Ignore Patterns Section -->
 <div class="card">
     <h3>🚫 Ignore Patterns</h3>
@@ -144,6 +158,31 @@
         } catch (e) {
             statusDiv.style.color = '#dc3545';
             statusDiv.innerText = '❌ Error connecting to backend';
+        }
+    }
+
+
+    async function loadSettingsActivityPreview() {
+        try {
+            const res = await fetch('/api/monitoring/activity?limit=10');
+            const rows = await res.json();
+            const el = document.getElementById('settingsActivityPreview');
+            if (!rows.length) {
+                el.innerHTML = '<p style="color:#666;">No activity yet.</p>';
+                return;
+            }
+            el.innerHTML = rows.map(r => {
+                const t = new Date(r.timestamp).toLocaleString();
+                const f = (r.file_path || '').split('/').pop();
+                const lang = r.language ? ` • lang: ${r.language}` : '';
+                const dst = r.destination ? `<div style="word-break:break-all; color:#555;">→ ${r.destination}</div>` : '';
+                return `<div style="padding:6px 0; border-bottom:1px solid #f1f1f1;">
+                    <div><strong>${f || r.file_path}</strong> <span style="color:#666;">(${r.action}${lang})</span></div>
+                    <div style="font-size:11px; color:#888;">${t}</div>${dst}
+                </div>`;
+            }).join('');
+        } catch (e) {
+            document.getElementById('settingsActivityPreview').innerHTML = '<p style="color:red;">Failed to load activity preview.</p>';
         }
     }
 
@@ -258,5 +297,6 @@
     // Initial load
     loadPatterns();
     loadIgnoredFiles();
+    loadSettingsActivityPreview();
 </script>
 {% endblock %}

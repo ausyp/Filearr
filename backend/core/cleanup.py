@@ -1,5 +1,5 @@
 import os
-from backend.core.processor import process_file
+from backend.core.processor import process_file, log_processed_file
 from backend.core.language import detect_language
 from backend.config.settings import settings
 from backend.db.database import SessionLocal
@@ -163,6 +163,7 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                         # Shared move_file handles directory creation and logging
                         if move_file(file_path, dest_path):
                             log_cleanup("move", file_path, dest_path, "success", f"Language Code: {lang_code}")
+                            log_processed_file(file_path, dest_path, metadata, lang_code, quality, action="move")
                             moved_count += 1
                         else:
                             raise Exception(f"Move failed for {file_path}")

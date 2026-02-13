@@ -3,6 +3,7 @@ from guessit import guessit
 from backend.core.config_service import config_service
 import logging
 import difflib
+import re
 
 logger = logging.getLogger(__name__)
 
