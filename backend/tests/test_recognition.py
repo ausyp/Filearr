@@ -19,7 +19,7 @@ class TestRecognition(unittest.TestCase):
         self.assertEqual(is_similar("Arya", "Aryan"), 0.0)
 
     def test_similarity_reduces_prefix_mismatch(self):
-        self.assertLess(is_similar("Terminator 2", "Angel Terminators 2"), 0.72)
+        self.assertLess(is_similar("Terminator 2", "Angel Terminators 2"), 0.7)
 
     @patch('backend.core.tmdb.tmdb.Search')
     @patch('backend.core.tmdb.config_service')

@@ -1,5 +1,4 @@
 from backend.core.cam_detector import is_cam
-from backend.core.language import detect_language
 from backend.core.quality import get_quality_score
 from backend.core.decision import decide
 from backend.core.file_ops import move_file, rejection_move

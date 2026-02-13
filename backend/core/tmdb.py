@@ -84,7 +84,7 @@ def get_movie_metadata(filename, pre_guess=None):
             similarity = is_similar(title, first_result['title'])
             
             # If high confidence, use it
-            if similarity >= 0.72:
+            if similarity >= 0.7:
                 best_match = first_result
         
         # 2. Fallback search without year if no results or low similarity
@@ -109,7 +109,7 @@ def get_movie_metadata(filename, pre_guess=None):
                         best_match = res
                 
                 # Final check: reject low-confidence matches
-                if best_similarity < 0.72:
+                if best_similarity < 0.7:
                     logger.warning(f"Best match for '{title}' has low similarity ({best_similarity:.2f}): {best_match['title']}")
                     best_match = None
 
