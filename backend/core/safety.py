@@ -6,6 +6,15 @@ from guessit import guessit
 MIN_MOVIE_SIZE_BYTES = 300 * 1024 * 1024
 
 
+def clean_filename(filename: str) -> str:
+    """
+    Tidy a release name before guessit sees it: non-breaking spaces become spaces
+    ("Prathichaya_2026\xa0Malayalam" hides the year) and leading "_" / "." are dropped.
+    """
+    text = re.sub(r"[\u00a0\u2000-\u200b\u202f\u3000]", " ", filename)
+    return text.lstrip("_. ")
+
+
 def extract_filename_language(filename: str):
     """Returns a normalized 3-letter language code if present in filename, else None."""
     name = filename.lower()
@@ -41,7 +50,7 @@ def evaluate_safety(path: str):
     except OSError:
         return False, "Unable to determine file size", None
 
-    guess = guessit(filename)
+    guess = guessit(clean_filename(filename))
     year = guess.get("year")
     title = (guess.get("title") or "").strip()
 

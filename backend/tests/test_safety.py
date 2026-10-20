@@ -48,6 +48,12 @@ class TestSafety(unittest.TestCase):
                 allowed, reason, _ = evaluate_safety(f'/tmp/{title}.2024.mkv')
             self.assertTrue(allowed, f"{title}: {reason}")
 
+    @patch('backend.core.safety.os.path.getsize', return_value=400 * 1024 * 1024)
+    def test_year_after_non_breaking_space(self, _):
+        allowed, reason, guess = evaluate_safety('/tmp/_Prathichaya_2026\xa0Malayalam_HQ_HDRip_1080p_x264_DD+5_1.mkv')
+        self.assertTrue(allowed, reason)
+        self.assertEqual((guess['title'], guess['year']), ('Prathichaya', 2026))
+
     @patch('backend.core.language.detect_language', return_value='eng')
     def test_filename_language_priority(self, _):
         filename_lang = extract_filename_language('Businessman.Tamil.2012.mkv')
