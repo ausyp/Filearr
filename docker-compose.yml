@@ -1,28 +1,27 @@
-version: "3.9"
+# All machine-specific values come from environment variables, so this file
+# never needs editing. Set them in Portainer's stack "Environment variables"
+# section, or in a .env file next to this file (see .env.example).
 
 services:
   filearr:
-    build: .
+    image: ghcr.io/ausyp/filearr:${FILEARR_TAG:-test2}
     container_name: filearr
     restart: unless-stopped
     ports:
-      - "8090:8000"
+      - "${FILEARR_PORT:-8090}:8000"
     volumes:
-      # Recommended: Mount your entire media library to one path (e.g., /media)
-      # This allows you to browse and select input/output folders freely.
-      - /path/to/your/media:/media
-
-      # Persistence for database and logs
-      - ./data:/data
-      # Legacy separate mounts (Optional - if you prefer strict separation)
-      # - /path/to/downloads:/input
-      # - /path/to/movies:/output
-
+      # Host media library, mounted at /media inside the container
+      - ${MEDIA_PATH:?Set MEDIA_PATH to your host media folder}:/media
+      # Database and logs
+      - ${DATA_PATH:-./data}:/data
     environment:
-      - TMDB_API_KEY=${TMDB_API_KEY}
-      - PUID=1000
-      - PGID=1000
-      # Default paths for single-volume setup (change via Settings UI if needed)
-      - INPUT_DIR=/media/downloads
-      - OUTPUT_DIR=/media/movies
+      - TMDB_API_KEY=${TMDB_API_KEY:-}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Paths inside the container (values saved in the Settings page override these)
+      - INPUT_DIR=${INPUT_DIR:-/media/downloads}
+      - OUTPUT_DIR=${OUTPUT_DIR:-/media/movies}
+      - MOVIES_DIR=${MOVIES_DIR:-/media/movies}
+      - MALAYALAM_DIR=${MALAYALAM_DIR:-/media/movies/malayalam-movies}
+      - REJECTED_DIR=${REJECTED_DIR:-/media/movies/rejected}
       - DATA_DIR=/data
