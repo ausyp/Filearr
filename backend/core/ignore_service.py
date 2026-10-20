@@ -3,6 +3,7 @@ Ignore Service - Manages file ignore patterns for Filearr
 """
 from backend.db.database import SessionLocal
 from backend.db.models import SystemSetting
+from backend.config.settings import settings as env_settings
 import fnmatch
 import logging
 
@@ -12,15 +13,13 @@ class IgnoreService:
     
     @staticmethod
     def get_ignore_patterns() -> list[str]:
-        """Get all ignore patterns from database"""
+        """Get all ignore patterns from database (falls back to IGNORE_PATTERNS env default)"""
         db = SessionLocal()
         try:
             setting = db.query(SystemSetting).filter(SystemSetting.key == "IGNORE_PATTERNS").first()
-            if setting and setting.value:
-                # Split by comma and strip whitespace
-                patterns = [p.strip() for p in setting.value.split(",") if p.strip()]
-                return patterns
-            return []
+            value = setting.value if setting is not None else env_settings.IGNORE_PATTERNS
+            # Split by comma and strip whitespace
+            return [p.strip() for p in (value or "").split(",") if p.strip()]
         except Exception as e:
             logger.error(f"Error retrieving ignore patterns: {e}")
             return []

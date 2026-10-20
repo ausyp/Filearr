@@ -48,8 +48,10 @@ def evaluate_safety(path: str):
     if not year:
         return False, "No year in filename", guess
 
-    cleaned = re.sub(r"[^a-zA-Z0-9 ]", "", title).strip()
-    if len(cleaned) < 6:
+    # Short real titles ("Gu", "Cup", "Haal") are allowed; the TMDB lookup
+    # requires an exact title match for them instead of rejecting them here
+    cleaned = re.sub(r"[^a-zA-Z0-9]", "", title)
+    if len(cleaned) < 2:
         return False, "Suspicious short title", guess
 
     return True, None, guess

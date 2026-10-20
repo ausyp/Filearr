@@ -25,3 +25,6 @@ services:
       - MALAYALAM_DIR=${MALAYALAM_DIR:-/media/movies/malayalam-movies}
       - REJECTED_DIR=${REJECTED_DIR:-/media/movies/rejected}
       - DATA_DIR=/data
+      # Set to true if /media is a network share (SMB/NFS): file events don't fire there,
+      # so only the 5-minute scan would pick up new files
+      - WATCHER_POLLING=${WATCHER_POLLING:-false}

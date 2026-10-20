@@ -105,5 +105,40 @@ class TestRecognition(unittest.TestCase):
         self.assertEqual(result['year'], "2020")
         self.assertIsNone(result['tmdb_id'])
 
+    def test_similarity_variants(self):
+        self.assertGreaterEqual(is_similar("Kishkindha Kaandam", "Kishkindha Kandam"), 0.7)
+        self.assertEqual(is_similar("Fast & Furious", "Fast and Furious"), 1.0)
+        self.assertEqual(is_similar("The Raid", "Raid"), 1.0)
+
+    @patch('backend.core.tmdb.tmdb.Search')
+    @patch('backend.core.tmdb.config_service')
+    def test_short_title_needs_exact_match(self, mock_config, mock_search):
+        mock_config.get_setting.return_value = "fake_key"
+        instance = mock_search.return_value
+        instance.movie.return_value = {'results': [
+            {'title': 'Guru', 'release_date': '2024-01-01', 'id': 1, 'overview': '', 'poster_path': ''},
+            {'title': 'Gu', 'release_date': '2024-02-01', 'id': 2, 'overview': '', 'poster_path': '', 'original_language': 'ml'},
+        ]}
+        result = get_movie_metadata("Gu.2024.Malayalam.1080p.mkv")
+        self.assertEqual(result['tmdb_id'], 2)
+
+        instance.movie.return_value = {'results': [
+            {'title': 'Guru', 'release_date': '2024-01-01', 'id': 1, 'overview': '', 'poster_path': ''},
+        ]}
+        self.assertIsNone(get_movie_metadata("Gu.2024.Malayalam.1080p.mkv")['tmdb_id'])
+
+    @patch('backend.core.tmdb.tmdb.Search')
+    @patch('backend.core.tmdb.config_service')
+    def test_best_result_not_just_first(self, mock_config, mock_search):
+        mock_config.get_setting.return_value = "fake_key"
+        instance = mock_search.return_value
+        instance.movie.return_value = {'results': [
+            {'title': 'Pushpa: The Rise', 'release_date': '2021-12-17', 'id': 1, 'overview': '', 'poster_path': ''},
+            {'title': 'Pushpa 2: The Rule', 'release_date': '2024-12-05', 'id': 2, 'overview': '', 'poster_path': ''},
+        ]}
+        result = get_movie_metadata("Pushpa.2.2024.1080p.mkv")
+        self.assertEqual(result['tmdb_id'], 2)
+        self.assertEqual(instance.movie.call_count, 1)
+
 if __name__ == '__main__':
     unittest.main()

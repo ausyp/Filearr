@@ -63,7 +63,7 @@ class FolderBrowser {
             const data = await response.json();
 
             if (data.error) {
-                folderList.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                folderList.innerHTML = `<p style="color: red;">Error: ${escapeHtml(data.error)}</p>`;
                 return;
             }
 
@@ -72,7 +72,7 @@ class FolderBrowser {
             // Add parent directory link if not at root
             if (data.parent_path && data.parent_path !== path) {
                 html += `
-                    <div class="folder-item" onclick="folderBrowser.loadDirectory('${data.parent_path}')" style="cursor: pointer; padding: 8px; margin: 4px 0; background: #fff; border-radius: 4px;">
+                    <div class="folder-item" onclick="folderBrowser.loadDirectory(${jsArg(data.parent_path)})" style="cursor: pointer; padding: 8px; margin: 4px 0; background: #fff; border-radius: 4px;">
                         📁 <strong>.. (Parent Directory)</strong>
                     </div>
                 `;
@@ -81,10 +81,10 @@ class FolderBrowser {
             // Add directories
             if (data.directories && data.directories.length > 0) {
                 data.directories.forEach(dir => {
-                    const fullPath = `${path}/${dir}`.replace('//', '/');
+                    const fullPath = `${data.current_path}/${dir}`.replace('//', '/');
                     html += `
-                        <div class="folder-item" onclick="folderBrowser.loadDirectory('${fullPath}')" style="cursor: pointer; padding: 8px; margin: 4px 0; background: #fff; border-radius: 4px; border: 1px solid #e0e0e0;">
-                            📁 ${dir}
+                        <div class="folder-item" onclick="folderBrowser.loadDirectory(${jsArg(fullPath)})" style="cursor: pointer; padding: 8px; margin: 4px 0; background: #fff; border-radius: 4px; border: 1px solid #e0e0e0;">
+                            📁 ${escapeHtml(dir)}
                         </div>
                     `;
                 });

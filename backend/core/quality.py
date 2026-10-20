@@ -1,5 +1,5 @@
 import ffmpeg
-import re
+from loguru import logger
 
 def get_quality_score(path):
     score = 0
@@ -14,7 +14,7 @@ def get_quality_score(path):
         width = int(video_stream.get('width', 0))
         height = int(video_stream.get('height', 0))
         codec = video_stream.get('codec_name', '').lower()
-        bitrate = int(video_stream.get('bit_rate', 0) or probe['format'].get('bit_rate', 0))
+        bitrate = int(video_stream.get('bit_rate') or probe.get('format', {}).get('bit_rate') or 0)
 
         # Resolution Scoring (35%)
         if width >= 3840 or height >= 2160: # 4K
@@ -63,7 +63,7 @@ def get_quality_score(path):
         # In robust implementation, we check color space metadata
         
     except Exception as e:
-        print(f"Error checking quality for {path}: {e}")
+        logger.error(f"Error checking quality for {path}: {e}")
         return 0
         
     return min(score, 100)

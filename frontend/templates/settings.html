@@ -190,7 +190,7 @@
     async function loadPatterns() {
         try {
             const response = await fetch('/api/ignore/patterns');
-            const patterns = await response.json();
+            const { patterns = [] } = await response.json();
 
             const list = document.getElementById('patternsList');
             if (patterns.length === 0) {
@@ -202,8 +202,8 @@
             patterns.forEach(p => {
                 html += `
                     <div style="background: #e9ecef; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px;">
-                        <code>${p}</code>
-                        <span style="cursor: pointer; color: #dc3545; font-weight: bold;" onclick="removePattern('${p}')">&times;</span>
+                        <code>${escapeHtml(p)}</code>
+                        <span style="cursor: pointer; color: #dc3545; font-weight: bold;" onclick="removePattern(${jsArg(p)})">&times;</span>
                     </div>
                 `;
             });
@@ -265,10 +265,10 @@
                 html += `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
                         <div style="flex: 1;">
-                            <code>${file.filename}</code><br>
-                            <small style="color: #666;">${file.reason || 'No reason'} • ${ignoredDate}</small>
+                            <code>${escapeHtml(file.filename)}</code><br>
+                            <small style="color: #666;">${escapeHtml(file.reason || 'No reason')} • ${ignoredDate}</small>
                         </div>
-                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="unignoreFile('${file.file_path}')">Unignore</button>
+                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="unignoreFile(${jsArg(file.file_path)})">Unignore</button>
                     </div>
                 `;
             });

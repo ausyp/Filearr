@@ -16,7 +16,7 @@ from backend.core.tmdb import test_tmdb_api
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     config = config_service.get_all_settings()
-    return templates.TemplateResponse("settings.html", {"request": request, "config": config})
+    return templates.TemplateResponse(request, "settings.html", {"config": config})
 
 @router.get("/api/settings/test-tmdb")
 async def verify_tmdb_key(api_key: str = Query(...)):

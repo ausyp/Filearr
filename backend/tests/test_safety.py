@@ -35,11 +35,18 @@ class TestSafety(unittest.TestCase):
         self.assertEqual(reason, "No year in filename")
 
     @patch('backend.core.safety.os.path.getsize', return_value=400 * 1024 * 1024)
-    def test_short_title_rejected(self, _):
-        with patch('backend.core.safety.guessit', return_value={'title': 'ETRG', 'year': 2020}):
-            allowed, reason, _ = evaluate_safety('/tmp/ETRG.2020.mkv')
+    def test_single_character_title_rejected(self, _):
+        with patch('backend.core.safety.guessit', return_value={'title': 'X', 'year': 2020}):
+            allowed, reason, _ = evaluate_safety('/tmp/X.2020.mkv')
         self.assertFalse(allowed)
         self.assertEqual(reason, "Suspicious short title")
+
+    @patch('backend.core.safety.os.path.getsize', return_value=400 * 1024 * 1024)
+    def test_short_real_titles_allowed(self, _):
+        for title in ("Gu", "Spa", "Cup", "Haal"):
+            with patch('backend.core.safety.guessit', return_value={'title': title, 'year': 2024}):
+                allowed, reason, _ = evaluate_safety(f'/tmp/{title}.2024.mkv')
+            self.assertTrue(allowed, f"{title}: {reason}")
 
     @patch('backend.core.language.detect_language', return_value='eng')
     def test_filename_language_priority(self, _):

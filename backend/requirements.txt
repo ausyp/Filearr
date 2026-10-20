@@ -1,4 +1,4 @@
-fastapi
+fastapi>=0.108  # TemplateResponse(request, name, ctx) signature
 uvicorn
 jinja2
 python-multipart

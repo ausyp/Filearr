@@ -21,6 +21,9 @@
                     style="padding: 4px 8px; font-size: 11px;">Stop</button>
                 <button onclick="controlWatcher('restart')" class="btn"
                     style="padding: 4px 8px; font-size: 11px;">Restart</button>
+                <button onclick="controlWatcher('rescan-skipped')" class="btn btn-secondary"
+                    title="Re-check every file still in the watch folder, including ones skipped earlier"
+                    style="padding: 4px 8px; font-size: 11px;">Rescan skipped</button>
             </div>
         </div>
         <div class="stat-box">
@@ -306,21 +309,21 @@
                 const time = new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const filename = activity.file_path.split('/').pop() || activity.file_path;
                 const actionClass = activity.action;
-                const langLine = activity.language ? `<div style="font-size:11px;color:#2e7d32;">Language: ${activity.language}</div>` : '';
-                const destLine = activity.destination ? `<div style="font-size:11px;color:#1565c0;word-break:break-all;">Moved to: ${activity.destination}</div>` : '';
-                const reason = activity.reason ? `<div style="font-size: 11px; color: #777;">${activity.reason}</div>` : '';
+                const langLine = activity.language ? `<div style="font-size:11px;color:#2e7d32;">Language: ${escapeHtml(activity.language)}</div>` : '';
+                const destLine = activity.destination ? `<div style="font-size:11px;color:#1565c0;word-break:break-all;">Moved to: ${escapeHtml(activity.destination)}</div>` : '';
+                const reason = activity.reason ? `<div style="font-size: 11px; color: #777;">${escapeHtml(activity.reason)}</div>` : '';
 
                 let ignoreButton = '';
-                if (activity.action === 'detected' || activity.action === 'failed') {
-                    ignoreButton = `<button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-left:10px;" onclick="ignoreFile('${activity.file_path}', '${filename}')">Ignore</button>`;
+                if (['detected', 'failed', 'skipped'].includes(activity.action)) {
+                    ignoreButton = `<button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-left:10px;" onclick="ignoreFile(${jsArg(activity.file_path)}, ${jsArg(filename)})">Ignore</button>`;
                 }
 
                 html += `
                     <div class="activity-item ${actionClass}">
                         <span class="activity-time">${time}</span>
-                        <span class="activity-file"><strong>${filename}</strong>${langLine}${destLine}${reason}</span>
+                        <span class="activity-file"><strong>${escapeHtml(filename)}</strong>${langLine}${destLine}${reason}</span>
                         <div style="display: flex; align-items: center;">
-                            <span class="activity-action">${activity.action}</span>
+                            <span class="activity-action">${escapeHtml(activity.action)}</span>
                             ${ignoreButton}
                         </div>
                     </div>
@@ -328,7 +331,7 @@
             });
             feed.innerHTML = html;
             document.getElementById('refreshTimer').textContent = 'Updated: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        } catch (e) { feed.innerHTML = '<p style="color: red;">Error loading activity</p>'; }
+        } catch (e) { document.getElementById('activityFeed').innerHTML = '<p style="color: red;">Error loading activity</p>'; }
     }
 
     async function ignoreFile(filePath, filename) {
@@ -353,8 +356,8 @@
             }
             body.innerHTML = rows.map(file => `
                 <tr>
-                    <td><strong>${file.movie_name || file.filename}</strong> (${file.year || 'Unknown'})<br><small style="color:#666;">${file.destination_path || ''}</small></td>
-                    <td><span class="status-badge status-success">${file.language || 'und'}</span></td>
+                    <td><strong>${escapeHtml(file.movie_name || file.filename)}</strong> (${escapeHtml(file.year || 'Unknown')})<br><small style="color:#666;">${escapeHtml(file.destination_path || '')}</small></td>
+                    <td><span class="status-badge status-success">${escapeHtml(file.language || 'und')}</span></td>
                     <td style="font-size:11px;color:#666;">${file.created_at ? new Date(file.created_at).toLocaleString() : ''}</td>
                     <td><button class="btn btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="reverseProcessed(${file.id})">Reverse</button></td>
                 </tr>
