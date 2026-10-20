@@ -2,36 +2,31 @@
 
 Portainer is a powerful UI for managing Docker containers. Here are the two best ways to run Filearr in Portainer.
 
-## Method 1: The "Git Repository" Way (Recommended for Portainer)
-This method allows Portainer to pull the code directly from a repository, build the image, and deploy the stack.
+## Method 1: Prebuilt image from GitHub (Recommended)
+GitHub Actions builds the image on every push and publishes it to GitHub Container Registry:
 
-### 1. Push Code to Git
-First, create a repository on GitHub (or GitLab/Bitbucket) and push the project files from `c:\Users\reach\Documents\Filearr` to it.
-Ensure the repository structure is:
-```
-/repo-root
-  ├── docker-compose.yml
-  ├── Dockerfile
-  ├── backend/
-  └── frontend/
-```
+- `ghcr.io/ausyp/filearr:test2` (and `:main`, `:test1`): latest build of that branch
+- `ghcr.io/ausyp/filearr:latest`: latest build of `main`
+- `ghcr.io/ausyp/filearr:sha-<commit>`: a specific commit
 
-### 2. Configure Portainer Stack
-1.  Log in to Portainer.
-2.  Go to **Stacks** > **Add stack**.
-3.  Name the stack: `filearr`.
-4.  Select **Git Repository** (instead of Web editor).
-5.  **Repository URL**: Paste your repository URL (e.g., `https://github.com/yourusername/filearr.git`).
-6.  **Compose path**: `docker-compose.yml` (default).
-7.  **Environment variables**: 
-    - add `TMDB_API_KEY`: `your_key_here`
-    - add `INPUT_DIR`: default is `/media/downloads` (ensure this exists in your volume)
-    - add `OUTPUT_DIR`: default is `/media/movies`
-8.  **Volumes**:
-    - map `/path/to/your/library` (host) -> `/media` (container).
-9.  Click **Deploy the stack**.
+### Set up the stack once
+1.  In Portainer go to **Stacks** > **Add stack**, name it `filearr`.
+2.  Choose **Repository** (URL `https://github.com/ausyp/filearr`, reference `refs/heads/test2`, compose path `docker-compose.yml`) or paste `docker-compose.yml` into the **Web editor**.
+3.  Under **Environment variables**, add the values from `.env.example`. At minimum:
+    - `MEDIA_PATH`: host folder holding your media (mounted at `/media`)
+    - `DATA_PATH`: host folder for the database, e.g. `/opt/filearr/data`
+    - `TMDB_API_KEY`
+    - `FILEARR_TAG`: which image tag to run (default `test2`)
+4.  Click **Deploy the stack**.
 
-> **Note**: You can also configure `TMDB_API_KEY` and directory paths directly in the application's **Settings** page after deployment.
+These variables live in the stack, so they don't need re-entering for each update.
+
+### Update after a merge
+Wait for the **Docker image** workflow to finish on GitHub, then open the stack in Portainer and click **Update the stack** with **Re-pull image** turned on (or **Pull and redeploy** for a Git stack).
+
+> If the image pull is refused, the package is private: on GitHub open the `filearr` package > **Package settings** > **Change visibility** > Public, or add a ghcr.io registry in Portainer with a token that has `read:packages`.
+
+> **Note**: Settings saved in the app's **Settings** page take priority over these environment variables.
 
 ## Method 2: The "Local CLI" Way (Easiest if running locally)
 If Portainer is running on the same machine as your code, you can start the stack via command line, and Portainer will automatically detect and manage it.
