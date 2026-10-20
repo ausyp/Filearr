@@ -1,226 +1,198 @@
 {% extends "base.html" %}
 
 {% block title %}Cleanup{% endblock %}
-{% block header %}Cleanup & Reorganise{% endblock %}
+{% block subtitle %}<p>Sort movies that are already on disk into the right library folders.</p>{% endblock %}
 
 {% block content %}
 <div class="card">
-    <h3>Manual Cleanup</h3>
-    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
-        Use this tool to reorganize files already in your library. It uses your current settings as defaults.
-    </p>
+    <h2>Reorganise a folder</h2>
+    <p class="hint">Filearr recognises every movie in the folder you pick and moves it to the matching library folder. The fields start with the folders from Settings.</p>
 
-    <div id="cleanupForm">
-        {% if config %}
-        <label for="origin">Watch Folder (Scan for cleanup):</label><br>
+    {% if config %}
+    <div class="field">
+        <label for="origin">Folder to clean up</label>
         <div class="input-group">
-            <input type="text" id="origin" name="origin" value="{{ config['INPUT_DIR'] }}"
-                placeholder="/media/downloads">
-            <button type="button" class="btn btn-secondary" onclick="browseFolder('origin')">Browse...</button>
-        </div>
-
-        <h4 style="margin-top: 25px;">Destination Folders</h4>
-
-        <label for="malayalam_dest">Malayalam Movies Destination:</label><br>
-        <div class="input-group">
-            <input type="text" id="malayalam_dest" name="malayalam_dest" value="{{ config['MALAYALAM_DIR'] }}"
-                placeholder="/media/movies/malayalam">
-            <button type="button" class="btn btn-secondary" onclick="browseFolder('malayalam_dest')">Browse...</button>
-        </div>
-
-        <label for="english_dest">English Movies Destination (Default):</label><br>
-        <div class="input-group">
-            <input type="text" id="english_dest" name="english_dest" value="{{ config['MOVIES_DIR'] }}"
-                placeholder="/media/movies">
-            <button type="button" class="btn btn-secondary" onclick="browseFolder('english_dest')">Browse...</button>
-        </div>
-
-        <div
-            style="margin-top: 20px; padding: 15px; background: #fffde7; border-left: 4px solid #fbc02d; border-radius: 4px;">
-            <input type="checkbox" id="dry_run" name="dry_run" checked>
-            <label for="dry_run" style="font-weight: bold; cursor: pointer;">Dry Run (Log only - Recommended
-                first)</label>
-            <p style="margin: 5px 0 0 25px; font-size: 13px; color: #555;">No files will be moved. View potential
-                changes in the Cleanup Logs on the Dashboard.</p>
-        </div>
-        {% else %}
-        <p style="color: red;">Error: System configuration could not be loaded. Please check your settings.</p>
-        {% endif %}
-
-        <div style="margin-top: 30px; display: flex; gap: 15px;">
-            <button type="button" class="btn btn-primary" onclick="startCleanup()" id="startBtn"
-                style="padding: 12px 30px;">Start Reorganisation</button>
-            <button type="button" class="btn btn-danger" onclick="stopCleanup()" id="stopBtn"
-                style="padding: 12px 30px; display: none !important;">Stop Operation</button>
+            <input type="text" id="origin" value="{{ config['INPUT_DIR'] }}" placeholder="/media/downloads">
+            <button type="button" class="btn" onclick="browseFolder('origin')">Browse</button>
         </div>
     </div>
 
-    <div id="status" style="margin-top: 25px; padding: 20px; border-radius: 8px; display: none; line-height: 1.6;">
+    <div class="field">
+        <label for="english_dest">Movies folder</label>
+        <div class="input-group">
+            <input type="text" id="english_dest" value="{{ config['MOVIES_DIR'] }}" placeholder="/media/movies">
+            <button type="button" class="btn" onclick="browseFolder('english_dest')">Browse</button>
+        </div>
+        <p class="hint">Recognised movies go here, unless they are Malayalam.</p>
     </div>
+
+    <div class="field">
+        <label for="malayalam_dest">Malayalam movies folder</label>
+        <div class="input-group">
+            <input type="text" id="malayalam_dest" value="{{ config['MALAYALAM_DIR'] }}" placeholder="/media/movies/malayalam">
+            <button type="button" class="btn" onclick="browseFolder('malayalam_dest')">Browse</button>
+        </div>
+    </div>
+
+    <div class="checkbox-box">
+        <input type="checkbox" id="dry_run" checked onchange="updateStartLabel()">
+        <div>
+            <label for="dry_run">Preview only</label>
+            <p class="muted">Nothing is moved. Each file and where it would go is listed in the log below. Recommended for the first run.</p>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" class="btn btn-primary" onclick="startCleanup()" id="startBtn">Preview changes</button>
+        <button type="button" class="btn btn-danger" onclick="stopCleanup()" id="stopBtn" hidden>Stop</button>
+    </div>
+    {% else %}
+    <div class="notice notice-danger">Settings could not be loaded. Check the Settings page and try again.</div>
+    {% endif %}
+
+    <div id="status" class="notice" hidden></div>
 </div>
 
 <div class="card">
-    <h3>📜 Cleanup Activity Log</h3>
-    <p style="color:#666; font-size:13px;">Shows language detected and destination from cleanup/organise activity.</p>
-    <div id="cleanupActivityFeed" style="max-height:320px; overflow-y:auto; font-size:13px;">
-        <p style="color:#666;">Loading cleanup activity...</p>
+    <div class="card-header">
+        <h2>Cleanup log</h2>
+        <span class="muted">Newest first</span>
+    </div>
+    <div id="cleanupActivityFeed" class="scroll">
+        <p class="empty">Loading...</p>
     </div>
 </div>
-
-<style>
-    .input-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-    }
-
-    .input-group input {
-        flex: 1;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-    }
-</style>
-
 {% endblock %}
 
 {% block scripts %}
 <script src="/static/folder-browser.js"></script>
 <script>
-    let pollInterval = null;
+    let wasRunning = false;
 
-    window.onload = function () {
-        checkStatus();
-        loadCleanupActivity();
-        pollInterval = setInterval(() => { checkStatus(); loadCleanupActivity(); }, 3000);
-    };
-
-    async function checkStatus() {
-        try {
-            const response = await fetch('/api/cleanup/status');
-            const data = await response.json();
-
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            const statusDiv = document.getElementById('status');
-
-            if (data.is_running) {
-                startBtn.disabled = true;
-                startBtn.style.opacity = '0.5';
-                stopBtn.style.display = 'inline-block';
-
-                if (data.should_stop) {
-                    stopBtn.disabled = true;
-                    stopBtn.innerText = 'Stopping...';
-                    stopBtn.style.opacity = '0.5';
-                } else {
-                    stopBtn.disabled = false;
-                    stopBtn.innerText = 'Stop Operation';
-                    stopBtn.style.opacity = '1';
-                }
-
-                statusDiv.style.display = 'block';
-                statusDiv.style.background = '#e3f2fd';
-                statusDiv.style.color = '#0d47a1';
-                statusDiv.style.border = '1px solid #bbdefb';
-                statusDiv.innerHTML = `⏳ <strong>Cleanup in progress...</strong><br>Currently processing: <code style="word-break: break-all;">${data.current_file || 'Starting...'}</code>`;
-            } else {
-                startBtn.disabled = false;
-                startBtn.style.opacity = '1';
-                stopBtn.style.display = 'none';
-
-                // If it was just running, we might want to clear status but usually the logs handle this
-            }
-        } catch (e) {
-            console.error('Failed to fetch status:', e);
-        }
+    function updateStartLabel() {
+        if (!document.getElementById('dry_run')) return;
+        const preview = document.getElementById('dry_run').checked;
+        document.getElementById('startBtn').textContent = preview ? 'Preview changes' : 'Start moving files';
     }
 
-    function browseFolder(inputId) {
-        const input = document.getElementById(inputId);
-        const startPath = input.value || '/media';
+    async function checkStatus() {
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        try {
+            const data = await api('/api/cleanup/status');
+            if (startBtn) startBtn.disabled = data.is_running;
+            if (stopBtn) {
+                stopBtn.hidden = !data.is_running;
+                stopBtn.disabled = data.should_stop;
+                stopBtn.textContent = data.should_stop ? 'Stopping...' : 'Stop';
+            }
 
-        folderBrowser.open(startPath, (selectedPath) => {
-            input.value = selectedPath;
-        });
+            if (data.is_running) {
+                status.hidden = false;
+                status.className = 'notice notice-info';
+                status.innerHTML = `<strong>Cleanup running.</strong> Working on <code>${escapeHtml(data.current_file || 'the file list')}</code>`;
+            } else if (wasRunning) {
+                status.hidden = false;
+                status.className = 'notice notice-success';
+                status.innerHTML = '<strong>Cleanup finished.</strong> See the log below for what happened to each file.';
+                loadCleanupActivity();
+            }
+            wasRunning = data.is_running;
+        } catch (e) {
+            console.error('Failed to fetch cleanup status:', e);
+        }
     }
 
     async function stopCleanup() {
-        if (!confirm('Are you sure you want to stop the cleanup operation? It will finish the current file and then stop.')) return;
-
+        const ok = await confirmDialog({
+            title: 'Stop the cleanup?',
+            message: 'Filearr finishes the current file and then stops.',
+            confirmText: 'Stop cleanup',
+            danger: true,
+        });
+        if (!ok) return;
         try {
-            await fetch('/api/cleanup/stop', { method: 'POST' });
-            checkStatus();
+            await api('/api/cleanup/stop', { method: 'POST' });
         } catch (e) {
-            alert('Failed to send stop signal: ' + e.message);
+            toast(e.message, 'error');
         }
+        checkStatus();
     }
 
-
     async function loadCleanupActivity() {
+        const feed = document.getElementById('cleanupActivityFeed');
         try {
-            const response = await fetch('/api/monitoring/activity?limit=40');
-            const activities = await response.json();
-            const feed = document.getElementById('cleanupActivityFeed');
-            const rows = activities.filter(a => a.source === 'cleanup' || a.destination);
+            const rows = await api('/api/logs/cleanup?limit=100');
             if (!rows.length) {
-                feed.innerHTML = '<p style="color:#666;">No cleanup activity yet.</p>';
+                feed.innerHTML = '<p class="empty">No cleanup has run yet.</p>';
                 return;
             }
-            feed.innerHTML = rows.map(a => {
-                const time = new Date(a.timestamp).toLocaleString();
-                const name = (a.file_path || '').split('/').pop();
-                const lang = a.language ? `<div><strong>Language:</strong> ${a.language}</div>` : '';
-                const dest = a.destination ? `<div style="word-break:break-all;"><strong>Destination:</strong> ${a.destination}</div>` : '';
-                const details = a.reason ? `<div style="color:#666;">${a.reason}</div>` : '';
-                return `<div style="border:1px solid #eee; border-left:4px solid #1976d2; border-radius:6px; padding:10px; margin:8px 0;">
-                    <div style="font-size:11px; color:#666;">${time}</div>
-                    <div><strong>${name || a.file_path}</strong></div>${lang}${dest}${details}
-                </div>`;
+            feed.innerHTML = rows.map(r => {
+                const isScan = r.operation_type === 'scan';
+                const status = r.status === 'failed' ? 'failed' : r.operation_type;
+                const label = { move: 'moved', dry_run: 'would move', skip: 'skipped', scan: r.status === 'failed' ? 'failed' : 'finished' }[r.operation_type];
+                const lines = [];
+                if (r.destination) lines.push(`${r.operation_type === 'dry_run' ? 'Would move to' : 'To'}: ${escapeHtml(r.destination)}`);
+                if (r.details) lines.push(escapeHtml(r.details));
+                return `
+                    <div class="list-item tone-${statusTone(status)}">
+                        <div class="main">
+                            <strong>${escapeHtml(isScan ? r.file_path : baseName(r.file_path))}</strong>
+                            ${lines.map(l => `<div class="meta">${l}</div>`).join('')}
+                            <div class="meta">${formatTime(r.timestamp)}</div>
+                        </div>
+                        <div class="side"><span class="badge badge-${statusTone(status) || 'info'}">${escapeHtml(statusLabel(label || r.operation_type))}</span></div>
+                    </div>`;
             }).join('');
         } catch (e) {
-            document.getElementById('cleanupActivityFeed').innerHTML = '<p style="color:red;">Failed to load cleanup activity.</p>';
+            feed.innerHTML = '<p class="empty" style="color: var(--danger);">Could not load the cleanup log.</p>';
         }
     }
 
     async function startCleanup() {
-        const origin = document.getElementById('origin').value;
-        const malayalamDest = document.getElementById('malayalam_dest').value;
-        const englishDest = document.getElementById('english_dest').value;
+        const origin = document.getElementById('origin').value.trim();
+        const malayalamDest = document.getElementById('malayalam_dest').value.trim();
+        const englishDest = document.getElementById('english_dest').value.trim();
         const dryRun = document.getElementById('dry_run').checked;
 
         if (!origin || !malayalamDest || !englishDest) {
-            alert('Please select all required folders.');
+            toast('Fill in all three folders first.', 'error');
             return;
         }
 
-        const payload = {
-            origin_dir: String(origin),
-            malayalam_dest: String(malayalamDest),
-            english_dest: String(englishDest),
-            dry_run: Boolean(dryRun)
-        };
-        console.log('Starting cleanup with payload:', payload);
+        if (!dryRun) {
+            const ok = await confirmDialog({
+                title: 'Move files now?',
+                message: `Preview only is off, so movies in ${origin} will really be moved into your library folders.`,
+                confirmText: 'Start moving files',
+                danger: true,
+            });
+            if (!ok) return;
+        }
 
         try {
-            const response = await fetch('/api/cleanup/start', {
+            await api('/api/cleanup/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    origin_dir: origin,
+                    malayalam_dest: malayalamDest,
+                    english_dest: englishDest,
+                    dry_run: dryRun,
+                }),
             });
-            const data = await response.json();
-
-            if (data.status === 'error' || data.error) {
-                alert('Error: ' + (data.message || data.error));
-            } else {
-                checkStatus();
-            }
+            toast(dryRun ? 'Preview started' : 'Cleanup started', 'success');
+            wasRunning = true;
         } catch (e) {
-            alert('Failed to start cleanup: ' + e.message);
-        } finally {
-            startBtn.disabled = false;
-            startBtn.style.opacity = '1';
+            toast(e.message, 'error');
         }
+        checkStatus();
     }
+
+    updateStartLabel();
+    checkStatus();
+    loadCleanupActivity();
+    setInterval(() => { checkStatus(); loadCleanupActivity(); }, 3000);
 </script>
 {% endblock %}

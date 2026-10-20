@@ -4,28 +4,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filearr - {% block title %}Dashboard{% endblock %}</title>
+    <title>{% block title %}Dashboard{% endblock %} · Filearr</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
 <body>
+    {% set path = request.url.path %}
+    <nav class="sidebar">
+        <div class="brand">Filearr</div>
+        <a href="/" class="{{ 'active' if path == '/' }}">Dashboard</a>
+        <a href="/cleanup" class="{{ 'active' if path.startswith('/cleanup') }}">Cleanup</a>
+        <a href="/settings" class="{{ 'active' if path.startswith('/settings') }}">Settings</a>
+    </nav>
 
-    <div class="sidebar">
-        <div style="padding: 0 25px; margin-bottom: 20px;">
-            <h2 style="color: white;">Filearr</h2>
-        </div>
-        <a href="/">Dashboard</a>
-        <a href="/cleanup">Cleanup & Reorganise</a>
-        <a href="/settings">Settings</a>
-    </div>
-
-    <div class="main-content">
-        <div class="header">
-            <h1>{% block header %}Dashboard{% endblock %}</h1>
+    <main class="main-content">
+        <div class="page-header">
+            <h1>{{ self.title() }}</h1>
+            {% block subtitle %}{% endblock %}
         </div>
 
         {% block content %}{% endblock %}
-    </div>
+    </main>
+
+    <div id="toasts" aria-live="polite"></div>
 
     <script src="/static/utils.js"></script>
     {% block scripts %}{% endblock %}

@@ -35,7 +35,6 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     recent_files = db.query(ProcessedFile).order_by(ProcessedFile.created_at.desc()).limit(50).all()
     rejected_files = db.query(RejectedFile).order_by(RejectedFile.created_at.desc()).limit(20).all()
     error_logs = db.query(ErrorLog).order_by(ErrorLog.timestamp.desc()).limit(20).all()
-    cleanup_logs = db.query(CleanupLog).order_by(CleanupLog.timestamp.desc()).limit(30).all()
     from backend.core.watcher import watcher_manager
     watch_path = watcher_manager.watched_path or "Not Active"
     
@@ -43,7 +42,6 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "recent_files": recent_files,
         "rejected_files": rejected_files,
         "error_logs": error_logs,
-        "cleanup_logs": cleanup_logs,
         "watch_path": watch_path
     })
 

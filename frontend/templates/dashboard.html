@@ -1,397 +1,297 @@
 {% extends "base.html" %}
 
 {% block title %}Dashboard{% endblock %}
-{% block header %}System Dashboard{% endblock %}
+{% block subtitle %}<p>What the watcher is doing and what it has done.</p>{% endblock %}
 
 {% block content %}
 
-<!-- System Status Card -->
-<div class="card" style="border-left: 4px solid #2e7d32;">
-    <h2>🟢 System Status</h2>
-    <div
-        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px;">
-        <div class="stat-box">
-            <div class="stat-label">Watcher Status</div>
-            <div class="stat-value" id="watcherStatus" style="font-size: 18px;">Loading...</div>
-            <div id="watchedPath" style="font-size: 11px; color: #666; margin-top: 5px; word-break: break-all;"></div>
-            <div style="margin-top: 10px; display: flex; gap: 5px; justify-content: center;">
-                <button onclick="controlWatcher('start')" class="btn"
-                    style="padding: 4px 8px; font-size: 11px;">Start</button>
-                <button onclick="controlWatcher('stop')" class="btn btn-secondary"
-                    style="padding: 4px 8px; font-size: 11px;">Stop</button>
-                <button onclick="controlWatcher('restart')" class="btn"
-                    style="padding: 4px 8px; font-size: 11px;">Restart</button>
-                <button onclick="controlWatcher('rescan-skipped')" class="btn btn-secondary"
-                    title="Re-check every file still in the watch folder, including ones skipped earlier"
-                    style="padding: 4px 8px; font-size: 11px;">Rescan skipped</button>
-            </div>
+<div class="card">
+    <div class="watcher-bar">
+        <div>
+            <h2><span class="status-dot" id="watcherDot"></span><span id="watcherStatus">Watcher: checking...</span></h2>
+            <div class="path" id="watchedPath"></div>
         </div>
-        <div class="stat-box">
-            <div class="stat-label">Processed Today</div>
-            <div class="stat-value" id="processedToday">0</div>
+        <div class="btn-row">
+            <button type="button" id="btnStart" class="btn btn-primary" onclick="controlWatcher('start')" hidden>Start watcher</button>
+            <button type="button" id="btnStop" class="btn" onclick="controlWatcher('stop')" hidden>Stop watcher</button>
+            <button type="button" id="btnRestart" class="btn" onclick="controlWatcher('restart')">Restart</button>
+            <button type="button" id="btnRescan" class="btn" onclick="controlWatcher('rescan-skipped')"
+                title="Re-check every file still in the watch folder, including ones skipped earlier">Rescan skipped files</button>
         </div>
-        <div class="stat-box">
-            <div class="stat-label">Ignored Today</div>
-            <div class="stat-value" id="ignoredToday">0</div>
+    </div>
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-label">Processed today</div>
+            <div class="stat-value" id="processedToday">–</div>
         </div>
-        <div class="stat-box">
-            <div class="stat-label">Errors Today</div>
-            <div class="stat-value" id="errorsToday">0</div>
+        <div class="stat">
+            <div class="stat-label">Ignored today</div>
+            <div class="stat-value" id="ignoredToday">–</div>
         </div>
-        <div class="stat-box">
-            <div class="stat-label">Last Activity</div>
-            <div class="stat-value" id="lastActivity" style="font-size: 14px;">Never</div>
+        <div class="stat">
+            <div class="stat-label">Failed today</div>
+            <div class="stat-value" id="errorsToday">–</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Last activity</div>
+            <div class="stat-value small" id="lastActivity">–</div>
         </div>
     </div>
 </div>
 
-<!-- System Errors Section (High Priority) -->
 {% if error_logs %}
-<div class="card" style="border-left: 4px solid #c62828;">
-    <h2 style="color: #c62828;">⚠️ Recent Errors</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>Source</th>
-                <th>Message</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in error_logs %}
-            <tr onclick="toggleTraceback({{ log.id }})" style="cursor: pointer;">
-                <td style="white-space: nowrap;">{{ log.timestamp.strftime('%H:%M:%S') }}</td>
-                <td><span class="status-badge status-danger">{{ log.source }}</span></td>
-                <td>{{ log.message }}</td>
-            </tr>
-            {% if log.traceback %}
-            <tr id="traceback-{{ log.id }}" style="display: none;">
-                <td colspan="3" style="background: #fafafa; padding: 10px; border-top: 1px solid #eee;">
-                    <pre style="margin: 0; font-size: 11px; overflow-x: auto; color: #d32f2f;">{{ log.traceback }}</pre>
-                </td>
-            </tr>
-            {% endif %}
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card card-danger">
+    <div class="card-header">
+        <h2>Recent errors</h2>
+        <span class="muted">Click a row to see details</span>
+    </div>
+    <div class="scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Source</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in error_logs %}
+                <tr {% if log.traceback %}class="clickable" onclick="toggleTraceback({{ log.id }})"{% endif %}>
+                    <td class="nowrap"><time data-utc="{{ log.timestamp.isoformat() }}"></time></td>
+                    <td><span class="badge badge-danger">{{ log.source }}</span></td>
+                    <td class="break">{{ log.message }}</td>
+                </tr>
+                {% if log.traceback %}
+                <tr id="traceback-{{ log.id }}" hidden>
+                    <td colspan="3"><pre class="traceback">{{ log.traceback }}</pre></td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endif %}
 
-<!-- Live Activity Feed -->
 <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin: 0;">📡 Live Activity</h2>
-        <span style="font-size: 12px; color: #666;" id="refreshTimer">Updating...</span>
+    <div class="card-header">
+        <h2>Live activity</h2>
+        <span class="muted" id="refreshTimer">Updating...</span>
     </div>
-
-    <div id="activityFeed">
-        <p style="color: #666; text-align: center; padding: 20px;">Loading live activity...</p>
+    <div id="activityFeed" class="scroll">
+        <p class="empty">Loading...</p>
     </div>
 </div>
 
-<!-- Historical Data Tabs/Accordions Concept (Simple list for now) -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-    <!-- Recent Processed (Static Fallback/History) -->
+<div class="grid-2">
     <div class="card">
-        <h3>✅ Processed History</h3>
-        <div style="max-height: 400px; overflow-y: auto;">
-            <table style="font-size: 13px; width:100%;">
+        <div class="card-header">
+            <h2>Processed</h2>
+            <span class="muted">Moved into your library</span>
+        </div>
+        <div class="scroll">
+            <table>
                 <thead>
                     <tr>
                         <th>Movie</th>
-                        <th>Lang</th>
+                        <th>Language</th>
                         <th>Time</th>
-                        <th>Action</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="processedHistoryBody">
-                    {% if recent_files %}
-                    {% for file in recent_files %}
-                    <tr>
-                        <td><strong>{{ file.movie_name }}</strong> ({{ file.year }})</td>
-                        <td><span class="status-badge status-success">{{ file.language }}</span></td>
-                        <td style="font-size: 11px; color: #666;">{{ file.created_at.strftime('%m-%d %H:%M') }}</td>
-                        <td><button class="btn btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="reverseProcessed({{ file.id }})">Reverse</button></td>
-                    </tr>
-                    {% endfor %}
-                    {% else %}
-                    <tr><td colspan="4" style="font-size: 13px; color: #666;">No files processed yet.</td></tr>
-                    {% endif %}
+                    <tr><td colspan="4" class="empty">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- Rejected / Quarantined -->
     <div class="card">
-        <h3>🚫 Rejected / Quarantine</h3>
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div class="card-header">
+            <h2>Rejected</h2>
+            <span class="muted">Moved to the rejected folder</span>
+        </div>
+        <div class="scroll">
             {% if rejected_files %}
-            <table style="font-size: 13px;">
+            <table>
                 <thead>
                     <tr>
                         <th>File</th>
                         <th>Reason</th>
+                        <th>Time</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for file in rejected_files %}
                     <tr>
-                        <td style="word-break: break-all;">{{ file.filename }}</td>
-                        <td><span class="status-badge status-danger">{{ file.reason }}</span></td>
+                        <td class="break">{{ file.filename }}</td>
+                        <td><span class="badge badge-danger">{{ file.reason }}</span></td>
+                        <td class="nowrap">{% if file.created_at %}<time data-utc="{{ file.created_at.isoformat() }}"></time>{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
             {% else %}
-            <p style="font-size: 13px; color: #666;">No rejected files.</p>
+            <p class="empty">No rejected files.</p>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- Cleanup Section -->
-{% if cleanup_logs %}
-<div class="card">
-    <h3>🧹 Recent Cleanup Operations</h3>
-    <table style="font-size: 13px;">
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>Operation</th>
-                <th>File</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in cleanup_logs %}
-            <tr>
-                <td>{{ log.timestamp.strftime('%H:%M:%S') }}</td>
-                <td>{{ log.operation_type }}</td>
-                <td style="font-family: monospace; font-size: 11px;">{{ log.file_path }}</td>
-                <td>
-                    <span
-                        class="status-badge {% if log.status == 'success' %}status-success{% elif log.status == 'failed' %}status-danger{% else %}status-warning{% endif %}">
-                        {{ log.status }}
-                    </span>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% endif %}
-
-<style>
-    .stat-box {
-        background: #f8f9fa;
-        padding: 12px;
-        border-radius: 8px;
-        text-align: center;
-        border: 1px solid #eee;
-    }
-
-    .stat-label {
-        font-size: 11px;
-        color: #666;
-        text-transform: uppercase;
-        margin-bottom: 5px;
-        font-weight: 600;
-    }
-
-    .stat-value {
-        font-size: 20px;
-        font-weight: bold;
-        color: #2c3e50;
-    }
-
-    .activity-item {
-        padding: 10px;
-        margin: 5px 0;
-        border-radius: 6px;
-        border-left: 4px solid #ddd;
-        background: #fdfdfd;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 13px;
-        border: 1px solid #f0f0f0;
-    }
-
-    .activity-item.processed {
-        border-left-color: #2e7d32;
-        background: #f1f8f1;
-    }
-
-    .activity-item.ignored {
-        border-left-color: #f57c00;
-        background: #fff8f1;
-    }
-
-    .activity-item.failed,
-    .activity-item.rejected {
-        border-left-color: #c62828;
-        background: #fff5f5;
-    }
-
-    .activity-item.detected {
-        border-left-color: #1976d2;
-        background: #f1f7ff;
-    }
-
-    .activity-time {
-        font-size: 11px;
-        color: #888;
-        white-space: nowrap;
-    }
-
-    .activity-file {
-        font-family: monospace;
-        flex: 1;
-        margin: 0 12px;
-        word-break: break-all;
-    }
-
-    .activity-action {
-        font-weight: bold;
-        font-size: 11px;
-        text-transform: uppercase;
-    }
-</style>
-
+{% block scripts %}
 <script>
+    let watcherRunning = false;
+
     function toggleTraceback(logId) {
         const row = document.getElementById('traceback-' + logId);
-        if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+        if (row) row.hidden = !row.hidden;
     }
 
     async function loadStats() {
         try {
-            const response = await fetch('/api/monitoring/stats');
-            const data = await response.json();
+            const data = await api('/api/monitoring/stats');
+            watcherRunning = data.watcher_status === 'running';
 
-            document.getElementById('watcherStatus').textContent = data.watcher_status === 'running' ? '🟢 Running' : '🔴 Stopped';
+            document.getElementById('watcherStatus').textContent = watcherRunning ? 'Watcher running' : 'Watcher stopped';
+            document.getElementById('watcherDot').className = 'status-dot ' + (watcherRunning ? 'on' : 'off');
+            document.getElementById('watchedPath').textContent = data.watched_path ? `Watching ${data.watched_path}` : 'Not watching any folder';
+            document.getElementById('btnStart').hidden = watcherRunning;
+            document.getElementById('btnStop').hidden = !watcherRunning;
+            document.getElementById('btnRescan').disabled = !watcherRunning;
+
             document.getElementById('processedToday').textContent = data.processed_today;
             document.getElementById('ignoredToday').textContent = data.ignored_today;
             document.getElementById('errorsToday').textContent = data.errors_today;
-
-            const watchedPathDiv = document.getElementById('watchedPath');
-            watchedPathDiv.textContent = data.watched_path ? `Path: ${data.watched_path}` : '';
-
-            if (data.last_activity) {
-                const lastTime = new Date(data.last_activity);
-                document.getElementById('lastActivity').textContent = lastTime.toLocaleTimeString();
-            }
-        } catch (e) { console.error('Error loading stats:', e); }
+            document.getElementById('lastActivity').textContent = data.last_activity ? formatTime(data.last_activity) : 'None yet';
+        } catch (e) {
+            document.getElementById('watcherStatus').textContent = 'Watcher status unavailable';
+            document.getElementById('watcherDot').className = 'status-dot';
+        }
     }
 
+    const WATCHER_ACTIONS = {
+        'start': { done: 'Watcher started' },
+        'stop': { done: 'Watcher stopped', confirm: 'New files will not be picked up until you start it again.', confirmText: 'Stop watcher', danger: true },
+        'restart': { done: 'Watcher restarted' },
+        'rescan-skipped': { done: 'Rescan started. Results will show in Live activity.' },
+    };
+
     async function controlWatcher(action) {
-        if (!confirm(`Confirm ${action} watcher?`)) return;
+        const cfg = WATCHER_ACTIONS[action];
+        if (cfg.confirm) {
+            const ok = await confirmDialog({ title: 'Stop the watcher?', message: cfg.confirm, confirmText: cfg.confirmText, danger: cfg.danger });
+            if (!ok) return;
+        }
         try {
-            await fetch(`/api/monitoring/watcher/${action}`, { method: 'POST' });
-            loadStats();
-        } catch (e) { alert(`Failed to ${action} watcher`); }
+            await api(`/api/monitoring/watcher/${action}`, { method: 'POST' });
+            toast(cfg.done, 'success');
+        } catch (e) {
+            toast(e.message, 'error');
+        }
+        loadStats();
     }
 
     async function loadActivity() {
+        const feed = document.getElementById('activityFeed');
         try {
-            const response = await fetch('/api/monitoring/activity?limit=15');
-            const activities = await response.json();
-            const feed = document.getElementById('activityFeed');
-
-            if (activities.length === 0) {
-                feed.innerHTML = '<p style="color: #666; text-align: center;">No activity recorded yet.</p>';
+            const activities = await api('/api/monitoring/activity?limit=15');
+            if (!activities.length) {
+                feed.innerHTML = '<p class="empty">No activity yet. New files in the watch folder will show up here.</p>';
                 return;
             }
 
-            let html = '';
-            activities.forEach(activity => {
-                const time = new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const filename = activity.file_path.split('/').pop() || activity.file_path;
-                const actionClass = activity.action;
-                const langLine = activity.language ? `<div style="font-size:11px;color:#2e7d32;">Language: ${escapeHtml(activity.language)}</div>` : '';
-                const destLine = activity.destination ? `<div style="font-size:11px;color:#1565c0;word-break:break-all;">Moved to: ${escapeHtml(activity.destination)}</div>` : '';
-                const reason = activity.reason ? `<div style="font-size: 11px; color: #777;">${escapeHtml(activity.reason)}</div>` : '';
-
-                let ignoreButton = '';
-                if (['detected', 'failed', 'skipped'].includes(activity.action)) {
-                    ignoreButton = `<button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-left:10px;" onclick="ignoreFile(${jsArg(activity.file_path)}, ${jsArg(filename)})">Ignore</button>`;
-                }
-
-                html += `
-                    <div class="activity-item ${actionClass}">
-                        <span class="activity-time">${time}</span>
-                        <span class="activity-file"><strong>${escapeHtml(filename)}</strong>${langLine}${destLine}${reason}</span>
-                        <div style="display: flex; align-items: center;">
-                            <span class="activity-action">${escapeHtml(activity.action)}</span>
-                            ${ignoreButton}
+            feed.innerHTML = activities.map(a => {
+                const name = baseName(a.file_path);
+                const details = [];
+                if (a.language) details.push(`Language: ${escapeHtml(a.language)}`);
+                if (a.destination) details.push(`Moved to: ${escapeHtml(a.destination)}`);
+                if (a.reason && !a.destination) details.push(escapeHtml(a.reason));
+                const source = a.source === 'cleanup' ? ' · Cleanup' : '';
+                const canIgnore = a.source === 'watcher' && ['detected', 'failed', 'skipped'].includes(a.action);
+                const ignoreBtn = canIgnore
+                    ? `<button type="button" class="btn btn-sm" onclick="ignoreFile(${jsArg(a.file_path)}, ${jsArg(name)})">Ignore</button>`
+                    : '';
+                return `
+                    <div class="list-item tone-${statusTone(a.action)}">
+                        <div class="main">
+                            <strong>${escapeHtml(name)}</strong>
+                            ${details.map(d => `<div class="meta">${d}</div>`).join('')}
+                            <div class="meta">${formatTime(a.timestamp)}${source}</div>
                         </div>
-                    </div>
-                `;
-            });
-            feed.innerHTML = html;
-            document.getElementById('refreshTimer').textContent = 'Updated: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        } catch (e) { document.getElementById('activityFeed').innerHTML = '<p style="color: red;">Error loading activity</p>'; }
+                        <div class="side">${badge(a.action)}${ignoreBtn}</div>
+                    </div>`;
+            }).join('');
+            document.getElementById('refreshTimer').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch (e) {
+            feed.innerHTML = '<p class="empty" style="color: var(--danger);">Could not load activity.</p>';
+        }
     }
 
     async function ignoreFile(filePath, filename) {
-        const reason = prompt(`Ignore "${filename}"?\n\nReason:`, 'Manually ignored');
-        if (reason === null) return;
+        const reason = await confirmDialog({
+            title: 'Ignore this file?',
+            message: `Filearr will stop processing "${filename}". You can undo this under Settings → Ignored files.`,
+            confirmText: 'Ignore file',
+            input: { label: 'Reason (optional)', value: 'Manually ignored' },
+        });
+        if (reason === false) return;
         try {
-            const resp = await fetch(`/api/ignore/file/add?file_path=${encodeURIComponent(filePath)}&reason=${encodeURIComponent(reason)}`, { method: 'POST' });
-            if (resp.ok) { loadActivity(); }
-        } catch (e) { alert('Error: ' + e.message); }
+            await api(`/api/ignore/file/add?file_path=${encodeURIComponent(filePath)}&reason=${encodeURIComponent(reason)}`, { method: 'POST' });
+            toast(`Ignoring ${filename}`, 'success');
+            loadActivity();
+        } catch (e) {
+            toast(e.message, 'error');
+        }
     }
 
-
     async function loadProcessedHistory() {
+        const body = document.getElementById('processedHistoryBody');
         try {
-            const resp = await fetch('/api/processed/history?limit=50');
-            const rows = await resp.json();
-            const body = document.getElementById('processedHistoryBody');
-            if (!body) return;
+            const rows = await api('/api/processed/history?limit=50');
             if (!rows.length) {
-                body.innerHTML = '<tr><td colspan="4" style="font-size:13px;color:#666;">No files processed yet.</td></tr>';
+                body.innerHTML = '<tr><td colspan="4" class="empty">No files processed yet.</td></tr>';
                 return;
             }
             body.innerHTML = rows.map(file => `
                 <tr>
-                    <td><strong>${escapeHtml(file.movie_name || file.filename)}</strong> (${escapeHtml(file.year || 'Unknown')})<br><small style="color:#666;">${escapeHtml(file.destination_path || '')}</small></td>
-                    <td><span class="status-badge status-success">${escapeHtml(file.language || 'und')}</span></td>
-                    <td style="font-size:11px;color:#666;">${file.created_at ? new Date(file.created_at).toLocaleString() : ''}</td>
-                    <td><button class="btn btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="reverseProcessed(${file.id})">Reverse</button></td>
+                    <td class="break"><strong>${escapeHtml(file.movie_name || file.filename)}</strong>${file.year ? ` (${escapeHtml(file.year)})` : ''}
+                        <div class="meta muted">${escapeHtml(file.destination_path || '')}</div></td>
+                    <td>${file.language ? `<span class="badge badge-success">${escapeHtml(file.language)}</span>` : ''}</td>
+                    <td class="nowrap">${formatTime(file.created_at)}</td>
+                    <td><button type="button" class="btn btn-sm" title="Move the file back to where it came from"
+                        onclick="reverseProcessed(${file.id}, ${jsArg(file.movie_name || file.filename)})">Undo</button></td>
                 </tr>
             `).join('');
         } catch (e) {
-            console.error('Failed to load processed history', e);
+            body.innerHTML = '<tr><td colspan="4" class="empty" style="color: var(--danger);">Could not load processed files.</td></tr>';
         }
     }
 
-    async function reverseProcessed(id) {
-        if (!confirm('Reverse this processed change?')) return;
+    async function reverseProcessed(id, name) {
+        const ok = await confirmDialog({
+            title: 'Undo this move?',
+            message: `"${name}" will be moved back to its original folder.`,
+            confirmText: 'Undo move',
+        });
+        if (!ok) return;
         try {
-            const resp = await fetch(`/api/processed/reverse/${id}`, { method: 'POST' });
-            if (!resp.ok) {
-                const data = await resp.json();
-                throw new Error(data.detail || 'Reverse failed');
-            }
-            await loadProcessedHistory();
-            await loadActivity();
+            await api(`/api/processed/reverse/${id}`, { method: 'POST' });
+            toast(`Moved ${name} back`, 'success');
+            loadProcessedHistory();
+            loadActivity();
         } catch (e) {
-            alert('Reverse failed: ' + e.message);
+            toast('Undo failed: ' + e.message, 'error');
         }
     }
 
-    // Initial load
-    loadStats();
-    loadActivity();
-    loadProcessedHistory();
-
-    // Regular refresh (every 8 seconds to be less aggressive than 5, but responsive)
-    setInterval(() => {
+    function refreshAll() {
         loadStats();
         loadActivity();
         loadProcessedHistory();
-    }, 8000);
+    }
+
+    refreshAll();
+    setInterval(refreshAll, 8000);
 </script>
 {% endblock %}
