@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     REJECTED_DIR: str = ""
     MOVIES_DIR: str = ""
     MALAYALAM_DIR: str = ""
+    TV_DIR: str = ""
+    MALAYALAM_TV_DIR: str = ""
 
     # Use a polling watcher instead of inotify (needed for SMB/NFS mounts)
     WATCHER_POLLING: bool = False
@@ -42,6 +44,11 @@ class Settings(BaseSettings):
             self.MOVIES_DIR = self.OUTPUT_DIR
         if not self.MALAYALAM_DIR:
             self.MALAYALAM_DIR = os.path.join(self.OUTPUT_DIR, "malayalam-movies")
+        if not self.TV_DIR:
+            # Next to the movies folder, so movie libraries don't pick up episodes
+            self.TV_DIR = os.path.join(os.path.dirname(self.OUTPUT_DIR.rstrip("/")), "tv-shows")
+        if not self.MALAYALAM_TV_DIR:
+            self.MALAYALAM_TV_DIR = os.path.join(self.TV_DIR, "malayalam-tv-shows")
         return self
 
 settings = Settings()

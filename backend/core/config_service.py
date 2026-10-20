@@ -64,6 +64,8 @@ class ConfigService:
             "OUTPUT_DIR": env_settings.OUTPUT_DIR,
             "MOVIES_DIR": env_settings.MOVIES_DIR,
             "MALAYALAM_DIR": env_settings.MALAYALAM_DIR,
+            "TV_DIR": env_settings.TV_DIR,
+            "MALAYALAM_TV_DIR": env_settings.MALAYALAM_TV_DIR,
             "REJECTED_DIR": env_settings.REJECTED_DIR,
         }
         
