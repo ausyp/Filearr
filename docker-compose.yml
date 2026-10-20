@@ -20,6 +20,8 @@ services:
 
     environment:
       - TMDB_API_KEY=${TMDB_API_KEY}
+      - PUID=1000
+      - PGID=1000
       # Default paths for single-volume setup (change via Settings UI if needed)
       - INPUT_DIR=/media/downloads
       - OUTPUT_DIR=/media/movies

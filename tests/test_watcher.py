@@ -43,3 +43,20 @@ def test_enqueue_dedupes_and_filters(tmp_path):
     m.enqueue("moved", "/in/a.mkv")
     m.enqueue("created", "/in/a.mkv.part")
     assert queued_paths(m) == ["/in/a.mkv"]
+
+
+def test_full_rescan_retries_skipped_but_not_ignored(tmp_path):
+    skipped = tmp_path / "Gu.2024.mkv"
+    ignored = tmp_path / "Home.Video.2019.mkv"
+    for f in (skipped, ignored):
+        f.write_text("x")
+    log_watcher_event("scan", str(skipped), "skipped", "Suspicious short title")
+    log_watcher_event("scan", str(ignored), "ignored", "File manually ignored")
+
+    m = WatcherManager()
+    m.initial_scan(str(tmp_path))
+    assert queued_paths(m) == []
+
+    m.initial_scan(str(tmp_path), retry_skipped=True)
+    assert queued_paths(m) == [str(skipped)]
+    assert m.last_scan_summary.startswith("Full rescan")

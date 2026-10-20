@@ -18,6 +18,8 @@ STABLE_CHECK_SECONDS = 2
 STABLE_TIMEOUT_SECONDS = 6 * 60 * 60  # Give up waiting on a file still growing after 6h
 RETRY_ACTIONS = ("failed", "detected")  # "detected" = interrupted mid-processing (e.g. restart)
 MAX_FAILED_ATTEMPTS = 3
+# Outcomes never retried, even on a full rescan (the user chose to ignore these)
+NEVER_RETRY_ACTIONS = ("ignored",)
 
 def log_watcher_event(event_type: str, file_path: str, action: str, reason: str = None):
     """Log watcher event to database"""
@@ -197,18 +199,36 @@ class WatcherManager:
 
     def background_scan_loop(self, directory: str, stop_event: threading.Event):
         """Background thread loop for initial and periodic scanning"""
-        # 1. Initial Scan immediately, then 2. Periodic Scan every 5 minutes
+        # 1. Initial Scan immediately: also retries skipped files, so a redeploy with
+        #    better matching rules picks them back up
+        # 2. Periodic Scan every 5 minutes: new and failed files only
+        retry_skipped = True
         while not stop_event.is_set():
-            self.initial_scan(directory)
+            self.initial_scan(directory, retry_skipped=retry_skipped)
+            retry_skipped = False
             if stop_event.wait(SCAN_INTERVAL_SECONDS):
                 break
 
-    def initial_scan(self, directory: str):
+    def rescan_skipped(self):
+        """Re-queue every media file still in the input folder that wasn't ignored by the user"""
+        if not self.is_running or not self.watched_path:
+            return False
+        threading.Thread(
+            target=self.initial_scan,
+            args=(self.watched_path,),
+            kwargs={"retry_skipped": True},
+            daemon=True,
+            name="WatcherRescan"
+        ).start()
+        return True
+
+    def initial_scan(self, directory: str, retry_skipped: bool = False):
         """
         Scan directory for files that still need processing. A file is queued if it
         has never been seen, or if its last attempt failed or was interrupted
-        (up to MAX_FAILED_ATTEMPTS). Files whose last outcome was skipped/ignored
-        are left alone, and the summary line says so.
+        (up to MAX_FAILED_ATTEMPTS). With retry_skipped, every file still sitting in
+        the folder is queued again unless the user ignored it. Files left alone are
+        counted in the summary line.
         """
         total = media = queued = 0
         left_alone = {}  # last action -> count
@@ -235,7 +255,9 @@ class WatcherManager:
                         .first()
                     )
                     retry = False
-                    if last is not None and last.action in RETRY_ACTIONS:
+                    if last is not None and retry_skipped:
+                        retry = last.action not in NEVER_RETRY_ACTIONS
+                    elif last is not None and last.action in RETRY_ACTIONS:
                         failures = (
                             db.query(WatcherLog.id)
                             .filter(WatcherLog.file_path == file_path, WatcherLog.action == "failed")
@@ -251,7 +273,7 @@ class WatcherManager:
 
             breakdown = ", ".join(f"{n} {action}" for action, n in sorted(left_alone.items())) or "none"
             summary = (
-                f"Scan of {directory}: {total} files, {media} media, {queued} queued; "
+                f"{'Full rescan' if retry_skipped else 'Scan'} of {directory}: {total} files, {media} media, {queued} queued; "
                 f"left alone from earlier runs: {breakdown}"
             )
             # Only repeat an unchanged summary at debug level so idle scans don't flood the log

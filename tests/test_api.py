@@ -32,6 +32,10 @@ def test_health():
     assert client.get("/health").json()["status"] == "ok"
 
 
-@pytest.mark.parametrize("page", ["/", "/cleanup", "/monitoring", "/settings"])
+@pytest.mark.parametrize("page", ["/", "/cleanup", "/monitoring", "/settings"])  # /monitoring redirects to /
 def test_pages_render(page):
     assert client.get(page).status_code == 200
+
+
+def test_rescan_skipped_requires_running_watcher():
+    assert client.post("/api/monitoring/watcher/rescan-skipped").status_code == 409
