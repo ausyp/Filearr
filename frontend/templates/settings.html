@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Settings{% endblock %}
-{% block subtitle %}<p>Where Filearr looks for new movies, where it puts them, and what it skips.</p>{% endblock %}
+{% block subtitle %}<p>Where Filearr looks for new movies and TV episodes, where it puts them, and what it skips.</p>{% endblock %}
 
 {% block content %}
 <form class="card" action="/api/settings/save" method="POST">
@@ -45,6 +45,24 @@
             <button type="button" class="btn" onclick="browseFolder('MALAYALAM_DIR')">Browse</button>
         </div>
         <p class="hint">Movies with Malayalam audio go here.</p>
+    </div>
+
+    <div class="field">
+        <label for="TV_DIR">TV shows folder</label>
+        <div class="input-group">
+            <input type="text" id="TV_DIR" name="TV_DIR" value="{{ config.TV_DIR }}">
+            <button type="button" class="btn" onclick="browseFolder('TV_DIR')">Browse</button>
+        </div>
+        <p class="hint">Recognised TV episodes go here as Show (Year)/Season 01/Show - S01E01, unless they are Malayalam.</p>
+    </div>
+
+    <div class="field">
+        <label for="MALAYALAM_TV_DIR">Malayalam TV shows folder</label>
+        <div class="input-group">
+            <input type="text" id="MALAYALAM_TV_DIR" name="MALAYALAM_TV_DIR" value="{{ config.MALAYALAM_TV_DIR }}">
+            <button type="button" class="btn" onclick="browseFolder('MALAYALAM_TV_DIR')">Browse</button>
+        </div>
+        <p class="hint">Malayalam TV episodes go here.</p>
     </div>
 
     <div class="field">

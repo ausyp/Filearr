@@ -9,6 +9,11 @@ Filearr is a comprehensive, Dockerized application for automating movie organiza
     - Detects language via audio tracks (ffprobe).
     - Routes Malayalam movies to a dedicated folder.
     - Routes all other languages to the standard Movies folder.
+- **TV Episodes** (Indian shows first):
+    - Recognises `S01E05`, `Ep 123`, `Episode 45` and air-date names (`15-06-2023`, `12th June 2024`).
+    - Looks the show up on TMDB, preferring Indian shows, and renames to `Show (Year)/Season 01/Show - S01E05.ext`.
+    - Daily shows with only an air date go to `Season 2024/Show - 2024-06-12.ext`.
+    - Malayalam episodes go to their own TV folder, everything else to the TV shows folder.
 - **Quality Control**:
     - Scores files based on resolution, codec, and audio quality.
     - Detects and rejects CAM/TS copies.
@@ -55,6 +60,8 @@ We recommend mounting a single volume (e.g., your entire media library) to `/med
 - Input: `/media/downloads`
 - Movies: `/media/movies`
 - Malayalam Movies: `/media/movies/malayalam` (or similar, configurable)
+- TV Shows: `/media/tv-shows` (`TV_DIR`)
+- Malayalam TV Shows: `/media/tv-shows/malayalam-tv-shows` (`MALAYALAM_TV_DIR`)
 - Rejected: `/media/movies/.rejected`
 - Trash: `/media/movies/.trash`
 

@@ -23,6 +23,8 @@ services:
       - OUTPUT_DIR=${OUTPUT_DIR:-/media/movies}
       - MOVIES_DIR=${MOVIES_DIR:-/media/movies}
       - MALAYALAM_DIR=${MALAYALAM_DIR:-/media/movies/malayalam-movies}
+      - TV_DIR=${TV_DIR:-/media/tv-shows}
+      - MALAYALAM_TV_DIR=${MALAYALAM_TV_DIR:-/media/tv-shows/malayalam-tv-shows}
       - REJECTED_DIR=${REJECTED_DIR:-/media/movies/rejected}
       - DATA_DIR=/data
       # Set to true if /media is a network share (SMB/NFS): file events don't fire there,

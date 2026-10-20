@@ -18,6 +18,8 @@ def test_settings_derive_paths_from_env(monkeypatch):
     assert s.REJECTED_DIR == "/library/rejected"
     assert s.MOVIES_DIR == "/library"
     assert s.MALAYALAM_DIR == "/library/malayalam-movies"
+    assert s.TV_DIR == "/tv-shows"
+    assert s.MALAYALAM_TV_DIR == "/tv-shows/malayalam-tv-shows"
 
 
 @pytest.mark.parametrize("name,expected", [

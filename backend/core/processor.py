@@ -5,6 +5,7 @@ from backend.core.decision import decide
 from backend.core.file_ops import move_file, rejection_move
 from backend.core.tmdb import get_movie_metadata
 from backend.core.safety import evaluate_safety, extract_filename_language
+from backend.core.tv import parse_episode, get_show_metadata, decide_episode, episode_label, MIN_EPISODE_SIZE_BYTES
 from backend.db.database import SessionLocal
 from backend.db.models import ProcessedFile, RejectedFile
 from loguru import logger
@@ -54,6 +55,43 @@ def reject(path, reason):
     record_rejected(path, reason)
     return {"status": "rejected", "reason": reason}
 
+def execute_move(path, decision, metadata, language, quality):
+    filename = os.path.basename(path)
+    if os.path.exists(decision.destination):
+        logger.warning(f"Skipping {filename}: destination exists ({decision.destination})")
+        return {"status": "skipped", "reason": "Destination already exists"}
+    if not move_file(path, decision.destination):
+        return {"status": "failed", "reason": f"Move to {decision.destination} failed"}
+    log_processed_file(path, decision.destination, metadata, language, quality, action="move")
+    return {"status": "processed", "reason": f"Moved to {os.path.basename(os.path.dirname(decision.destination))}"}
+
+def process_episode(path, guess):
+    """TV episodes skip the movie safety checks (no year, smaller files) and go to the TV folders"""
+    filename = os.path.basename(path)
+    if "sample" in filename.lower():
+        return {"status": "skipped", "reason": "Sample file"}
+    try:
+        if os.path.getsize(path) < MIN_EPISODE_SIZE_BYTES:
+            return {"status": "skipped", "reason": "Too small to be a full episode"}
+    except OSError:
+        return {"status": "skipped", "reason": "Unable to determine file size"}
+
+    show = get_show_metadata(guess)
+    if not show:
+        logger.warning(f"Could not confidently identify TV show for {filename}")
+        return {"status": "skipped", "reason": "Low TMDB confidence (TV)"}
+
+    filename_lang = extract_filename_language(filename)
+    language = get_refined_language(path, show, filename_lang=filename_lang)
+    quality = get_quality_score(path)
+
+    decision = decide_episode(path, language, guess, show)
+    logger.info(f"Analyzed {filename}: Show={show['title']} ({show['year']}), Lang={language}, Quality={quality}")
+
+    # Dashboard shows "Show S01E05" in the title column
+    metadata = {"title": f"{show['title']} {episode_label(guess)}", "year": show["year"]}
+    return execute_move(path, decision, metadata, language, quality)
+
 def process_file(path):
     filename = os.path.basename(path)
     logger.info(f"Processing file: {filename}")
@@ -65,37 +103,36 @@ def process_file(path):
     if is_cam(filename):
         return reject(path, "CAM/TS detected")
 
-    # 2. Mandatory safety checks before parsing / TMDB lookup
+    # 2. TV episodes have their own checks and folders
+    episode = parse_episode(filename)
+    if episode:
+        return process_episode(path, episode)
+
+    # 3. Mandatory safety checks before parsing / TMDB lookup
     allowed, reason, pre_guess = evaluate_safety(path)
     if not allowed:
         logger.warning(f"Skipping {filename}: {reason}")
         return {"status": "skipped", "reason": reason}
 
-    # 3. Get Metadata
+    # 4. Get Metadata
     metadata = get_movie_metadata(filename, pre_guess=pre_guess)
     if not metadata or not metadata.get('tmdb_id'):
         logger.warning(f"Could not confidently identify movie for {filename}")
         return {"status": "skipped", "reason": "Low TMDB confidence"}
 
-    # 4. Detect Language & Quality
+    # 5. Detect Language & Quality
     filename_lang = extract_filename_language(filename)
     language = get_refined_language(path, metadata, filename_lang=filename_lang)
     quality = get_quality_score(path)
 
     logger.info(f"Analyzed {filename}: Movie={metadata['title']} ({metadata['year']}), Lang={language}, Quality={quality}")
 
-    # 5. Make Decision
+    # 6. Make Decision
     decision = decide(path, language, quality, False, metadata)
 
-    # 6. Execute Decision
+    # 7. Execute Decision
     if decision.action == "move":
-        if os.path.exists(decision.destination):
-            logger.warning(f"Skipping {filename}: destination exists ({decision.destination})")
-            return {"status": "skipped", "reason": "Destination already exists"}
-        if not move_file(path, decision.destination):
-            return {"status": "failed", "reason": f"Move to {decision.destination} failed"}
-        log_processed_file(path, decision.destination, metadata, language, quality, action="move")
-        return {"status": "processed", "reason": f"Moved to {os.path.basename(os.path.dirname(decision.destination))}"}
+        return execute_move(path, decision, metadata, language, quality)
     elif decision.action == "reject":
         return reject(path, decision.reason)
     else:
