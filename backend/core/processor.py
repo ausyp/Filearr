@@ -10,6 +10,7 @@ from backend.db.database import SessionLocal
 from backend.db.models import ProcessedFile, RejectedFile
 from loguru import logger
 import os
+import re
 
 MEDIA_EXTENSIONS = ('.mkv', '.mp4', '.avi', '.mov', '.m4v', '.ts')
 
@@ -55,15 +56,43 @@ def reject(path, reason):
     record_rejected(path, reason)
     return {"status": "rejected", "reason": reason}
 
+def earlier_copies(path, decision):
+    """
+    Media files already in the destination folder for the same movie or episode
+    ("Premam (2015) 720p.mkv", "Show - S01E05 480p.mp4"), whatever their quality tags.
+    """
+    folder = os.path.dirname(decision.destination)
+    prefix = decision.same_item_prefix or os.path.splitext(os.path.basename(decision.destination))[0]
+    # "S01E05" must not match "S01E050" or the double episode "S01E05-E06"
+    same_item = re.compile(re.escape(prefix) + r"(?![0-9]|-E)")
+    if not os.path.isdir(folder):
+        return []
+    copies = []
+    for name in sorted(os.listdir(folder)):
+        existing = os.path.join(folder, name)
+        if is_media_file(name) and same_item.match(name) and os.path.isfile(existing) \
+                and os.path.abspath(existing) != os.path.abspath(path):
+            copies.append(existing)
+    return copies
+
 def execute_move(path, decision, metadata, language, quality):
-    filename = os.path.basename(path)
-    if os.path.exists(decision.destination):
-        logger.warning(f"Skipping {filename}: destination exists ({decision.destination})")
-        return {"status": "skipped", "reason": "Destination already exists"}
+    # A new download of something already in the library replaces it (it was usually
+    # re-downloaded because the old copy was broken). The old copy goes to the rejected folder.
+    replaced = []
+    for existing in earlier_copies(path, decision):
+        reason = f"Replaced by newer download {os.path.basename(path)}"
+        if not rejection_move(existing, reason):
+            return {"status": "failed", "reason": f"Could not move earlier copy {os.path.basename(existing)} aside"}
+        record_rejected(existing, reason)
+        replaced.append(os.path.basename(existing))
     if not move_file(path, decision.destination):
         return {"status": "failed", "reason": f"Move to {decision.destination} failed"}
-    log_processed_file(path, decision.destination, metadata, language, quality, action="move")
-    return {"status": "processed", "reason": f"Moved to {os.path.basename(os.path.dirname(decision.destination))}"}
+    action = "replace" if replaced else "move"
+    log_processed_file(path, decision.destination, metadata, language, quality, action=action)
+    folder = os.path.basename(os.path.dirname(decision.destination))
+    if replaced:
+        return {"status": "processed", "reason": f"Moved to {folder}, replacing {', '.join(replaced)}"}
+    return {"status": "processed", "reason": f"Moved to {folder}"}
 
 def process_episode(path, guess):
     """TV episodes skip the movie safety checks (no year, smaller files) and go to the TV folders"""

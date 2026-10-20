@@ -17,7 +17,7 @@ Filearr is a comprehensive, Dockerized application for automating movie organiza
 - **Quality Control**:
     - Scores files based on resolution, codec, and audio quality.
     - Detects and rejects CAM/TS copies.
-    - (Future) Auto-upgrades existing files with better versions.
+    - A new download of a movie or episode already in the library replaces it; the old copy goes to the rejected folder.
 - **Manual Cleanup Mode**:
     - Web UI to scan existing folders and normalize filenames/structure.
     - Dry-run support to preview changes safely.

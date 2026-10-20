@@ -131,10 +131,12 @@ def decide_episode(file_path, language, guess, show):
 
     ext = os.path.splitext(file_path)[1].lower()
     quality_tags = extract_quality_tags(file_path)
-    file_stem = f"{title} - {episode_label(guess)} {quality_tags}".strip()
+    episode_stem = f"{title} - {episode_label(guess)}"
+    file_stem = f"{episode_stem} {quality_tags}".strip()
 
     return Decision(
         action="move",
         destination=os.path.join(destination_root, show_folder, season_folder(guess), f"{file_stem}{ext}"),
         reason=f"Processed TV episode (Language: {language})",
+        same_item_prefix=episode_stem,
     )

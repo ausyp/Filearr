@@ -7,6 +7,8 @@ class Decision(BaseModel):
     action: str  # 'move', 'replace', 'reject', 'ignore'
     destination: str
     reason: str
+    # Files in the destination folder starting with this are earlier copies of the same movie/episode
+    same_item_prefix: str = ""
 
 def sanitize_filename(filename):
     """Sanitize filename to be safe for all filesystems."""
@@ -83,5 +85,6 @@ def decide(file_path, language, quality_score, is_cam, tmdb_info, existing_file=
     return Decision(
         action="move",
         destination=final_path,
-        reason=f"Processed (Language: {language})"
+        reason=f"Processed (Language: {language})",
+        same_item_prefix=folder_name,
     )
