@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from backend.api.routes import router
 from backend.core.watcher import start_watchers
-import logging
 from loguru import logger
+import os
 import sys
 
+from backend.config.settings import settings
 from backend.api.settings import router as settings_router
 
 from fastapi.exceptions import RequestValidationError
@@ -14,7 +15,8 @@ from fastapi.responses import JSONResponse
 # Configure logging
 logger.remove()
 logger.add(sys.stderr, level="INFO")
-logger.add("/data/filearr.log", rotation="10 MB", level="INFO")
+os.makedirs(settings.DATA_DIR, exist_ok=True)
+logger.add(os.path.join(settings.DATA_DIR, "filearr.log"), rotation="10 MB", level="INFO")
 
 app = FastAPI(title="Filearr", description="Intelligent Movie Ingestion & Cleanup Engine")
 

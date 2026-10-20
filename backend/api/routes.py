@@ -6,8 +6,9 @@ from backend.db.models import ProcessedFile, RejectedFile, ErrorLog, CleanupLog,
 from sqlalchemy.orm import Session
 from fastapi import Depends
 from loguru import logger
+import os
+from collections import deque
 
-# We'll implement cleanup module next
 from backend.core.cleanup import run_manual_cleanup
 from backend.core.directory_service import directory_service
 from backend.core.ignore_service import ignore_service 
@@ -22,7 +23,14 @@ class CleanupRequest(BaseModel):
 router = APIRouter()
 templates = Jinja2Templates(directory="frontend/templates")
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/health")
+async def health():
+    """Lightweight liveness check for uptime monitors / Docker healthchecks"""
+    from backend.core.watcher import watcher_manager
+    return {"status": "ok", "watcher": "running" if watcher_manager.is_running else "stopped"}
+
+# HEAD is accepted so uptime monitors pinging "/" don't get 405
+@router.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
     recent_files = db.query(ProcessedFile).order_by(ProcessedFile.created_at.desc()).limit(50).all()
     rejected_files = db.query(RejectedFile).order_by(RejectedFile.created_at.desc()).limit(20).all()
@@ -31,8 +39,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     from backend.core.watcher import watcher_manager
     watch_path = watcher_manager.watched_path or "Not Active"
     
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "recent_files": recent_files,
         "rejected_files": rejected_files,
         "error_logs": error_logs,
@@ -45,16 +52,16 @@ async def cleanup_page(request: Request):
     from backend.core.config_service import config_service
     config = config_service.get_all_settings()
     logger.info(f"Rendering cleanup page with config keys: {list(config.keys())}")
-    return templates.TemplateResponse("cleanup.html", {
-        "request": request,
-        "config": config
-    })
+    return templates.TemplateResponse(request, "cleanup.html", {"config": config})
 
 @router.get("/api/debug/dump_config")
 async def debug_dump_config():
-    """Diagnostic endpoint to see the full config object"""
+    """Diagnostic endpoint to see the full config object (secrets masked)"""
     from backend.core.config_service import config_service
-    return config_service.get_all_settings()
+    config = config_service.get_all_settings()
+    if config.get("TMDB_API_KEY"):
+        config["TMDB_API_KEY"] = "****" + config["TMDB_API_KEY"][-4:]
+    return config
 
 @router.post("/api/cleanup/start")
 async def start_cleanup(
@@ -99,9 +106,13 @@ async def start_cleanup(
     # Relaxed root: allow anything under /media (our primary volume)
     ALLOWED_ROOTS = ["/media"]
     
-    # Safety guard: ensure paths start with allowed roots
+    # Safety guard: ensure paths resolve inside allowed roots (blocks "/media/../etc", "/media2")
+    def is_allowed(path):
+        real = os.path.realpath(path)
+        return any(os.path.commonpath([real, root]) == root for root in ALLOWED_ROOTS)
+
     for p, name in [(final_origin, "origin"), (final_mal, "malayalam"), (final_eng, "english")]:
-        if not any(p.startswith(root) for root in ALLOWED_ROOTS):
+        if not is_allowed(p):
             msg = f"Invalid {name} path: {p}. Must start with {' or '.join(ALLOWED_ROOTS)}"
             logger.error(msg)
             return {"error": msg}
@@ -174,7 +185,7 @@ async def get_cleanup_logs(limit: int = 100, db: Session = Depends(get_db)):
 @router.get("/monitoring", response_class=HTMLResponse)
 async def monitoring_page(request: Request):
     """Monitoring dashboard page"""
-    return templates.TemplateResponse("monitoring.html", {"request": request})
+    return templates.TemplateResponse(request, "monitoring.html", {})
 
 @router.get("/api/monitoring/stats")
 async def get_monitoring_stats(db: Session = Depends(get_db)):
@@ -324,19 +335,18 @@ async def remove_ignored_file(file_path: str):
 @router.get("/api/debug/logs")
 async def get_system_logs():
     """Diagnostic endpoint to read the log file"""
-    import os
-    log_path = "/data/filearr.log"
+    from backend.config.settings import settings
+    log_path = os.path.join(settings.DATA_DIR, "filearr.log")
     if not os.path.exists(log_path):
         return {"error": "Log file not found"}
     with open(log_path, "r") as f:
         # Get last 100 lines
-        lines = f.readlines()
-        return {"logs": lines[-100:]}
+        lines = deque(f, maxlen=100)
+        return {"logs": list(lines)}
 
 @router.get("/api/debug/ls")
 async def debug_list_files(path: str = "/media"):
     """Diagnostic endpoint to see what the container sees"""
-    import os
     if not os.path.exists(path):
         return {"error": f"Path {path} not found"}
     

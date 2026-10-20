@@ -1,7 +1,5 @@
 import os
-from backend.core.processor import process_file
-from backend.core.language import detect_language
-from backend.config.settings import settings
+from backend.core.processor import is_media_file
 from backend.db.database import SessionLocal
 from backend.db.models import CleanupLog, ErrorLog
 from datetime import datetime
@@ -111,7 +109,7 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                 cleanup_manager.current_file = file
                 
                 # Skip non-media files
-                if not file.lower().endswith(('.mkv', '.mp4', '.avi', '.mov')):
+                if not is_media_file(file):
                     continue
 
                 logger.info(f"Checking file: {file}")
@@ -139,6 +137,17 @@ def run_manual_cleanup(origin_dir: str, malayalam_dest: str, english_dest: str, 
                     )
                     
                     dest_path = decision.destination
+
+                    if os.path.abspath(dest_path) == os.path.abspath(file_path):
+                        # Already correctly named and placed
+                        processed_count += 1
+                        continue
+
+                    if os.path.exists(dest_path):
+                        logger.warning(f"Skipping {file_path}: destination {dest_path} already exists")
+                        log_cleanup("dry_run" if dry_run else "move", file_path, dest_path, "skipped", "Destination already exists")
+                        processed_count += 1
+                        continue
                     
                     if dry_run:
                         logger.info(f"[DRY RUN] Would move {file_path} to {dest_path} (Lang Code: {lang_code})")

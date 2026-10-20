@@ -185,18 +185,18 @@
                 const actionClass = activity.action;
 
                 let actionText = activity.action.toUpperCase();
-                let reasonText = activity.reason ? `<br><small style="color: #666;">${activity.reason}</small>` : '';
+                let reasonText = activity.reason ? `<br><small style="color: #666;">${escapeHtml(activity.reason)}</small>` : '';
 
                 // Add ignore button for detected/failed files (not already ignored or processed)
                 let ignoreButton = '';
                 if (activity.action === 'detected' || activity.action === 'failed') {
-                    ignoreButton = `<button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-left: 10px;" onclick="ignoreFile('${activity.file_path}', '${filename}')">Ignore</button>`;
+                    ignoreButton = `<button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-left: 10px;" onclick="ignoreFile(${jsArg(activity.file_path)}, ${jsArg(filename)})">Ignore</button>`;
                 }
 
                 html += `
             <div class="activity-item ${actionClass}">
                 <span class="activity-time">${time}</span>
-                <span class="activity-file">${filename}${reasonText}</span>
+                <span class="activity-file">${escapeHtml(filename)}${reasonText}</span>
                 <span class="activity-action">${actionText}</span>
                 ${ignoreButton}
             </div>

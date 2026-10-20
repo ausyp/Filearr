@@ -35,13 +35,14 @@ def detect_language(path):
                 continue
                 
             # Normalize common variations
-            if lang in ['mal', 'may', 'malam', 'malayalam']:
+            # Note: 'may' is ISO 639-2 for Malay, not Malayalam
+            if lang in ['mal', 'ml', 'malam', 'malayalam']:
                 return 'mal'
-            if lang in ['eng', 'english']:
+            if lang in ['eng', 'en', 'english']:
                 return 'eng'
-            if lang in ['hin', 'hindi']:
+            if lang in ['hin', 'hi', 'hindi']:
                 return 'hin'
-            if lang in ['tam', 'tamil']:
+            if lang in ['tam', 'ta', 'tamil']:
                 return 'tam'
             
             # If we find a non-'und' language, keep it if we don't find others

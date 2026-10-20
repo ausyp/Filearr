@@ -24,3 +24,6 @@ services:
       - INPUT_DIR=/media/downloads
       - OUTPUT_DIR=/media/movies
       - DATA_DIR=/data
+      # Set to true if /media is a network share (SMB/NFS): file events don't fire there,
+      # so only the 5-minute scan would pick up new files
+      - WATCHER_POLLING=false

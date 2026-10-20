@@ -1,13 +1,12 @@
 from pydantic import BaseModel
 import os
+import re
 from backend.core.config_service import config_service
 
 class Decision(BaseModel):
     action: str  # 'move', 'replace', 'reject', 'ignore'
     destination: str
     reason: str
-
-import re
 
 def sanitize_filename(filename):
     """Sanitize filename to be safe for all filesystems."""
@@ -32,12 +31,12 @@ def decide(file_path, language, quality_score, is_cam, tmdb_info, existing_file=
     
     # Construct final path: Destination/Title (Year)/Title (Year).ext
     title = sanitize_filename(tmdb_info.get('title', 'Unknown'))
-    year = tmdb_info.get('year', 'Unknown')
-    ext = file_path.split('.')[-1]
+    year = str(tmdb_info.get('year') or 'Unknown')
+    ext = os.path.splitext(file_path)[1].lower()
     
     # Format: Movie Title (Year) or just Movie Title if year is missing
     folder_name = f"{title} ({year})" if year and year != "Unknown" else title
-    file_name = f"{folder_name}.{ext}"
+    file_name = f"{folder_name}{ext}"
     
     # Final path ensures movie is in its own subfolder
     final_path = os.path.join(destination_root, folder_name, file_name)
