@@ -4,15 +4,22 @@ from guessit import guessit
 
 
 MIN_MOVIE_SIZE_BYTES = 300 * 1024 * 1024
+LANGUAGE_WORDS = re.compile(r"(?i)\b(malayalam|tamil|telugu|hindi|kannada|english|multi audio|dual audio)\b")
 
 
 def clean_filename(filename: str) -> str:
     """
     Tidy a release name before guessit sees it: non-breaking spaces become spaces
-    ("Prathichaya_2026\xa0Malayalam" hides the year) and leading "_" / "." are dropped.
+    ("Prathichaya_2026\xa0Malayalam" hides the year), leading "_" / "." are dropped, and so is a
+    numbered-list prefix ("1970 - Apocalypse.Z.New.World.2026" would otherwise be titled "1970").
     """
     text = re.sub(r"[\u00a0\u2000-\u200b\u202f\u3000]", " ", filename)
-    return text.lstrip("_. ")
+    text = text.lstrip("_. ")
+    # Only when a worded title follows, so "1917 - 2019 1080p" and "1986 - Malayalam 2024" keep theirs
+    match = re.match(r"\d{1,4}\s*-\s+(?=[^\W\d_])", text)
+    if match and not LANGUAGE_WORDS.match(text, match.end()):
+        text = text[match.end():]
+    return text
 
 
 def extract_filename_language(filename: str):

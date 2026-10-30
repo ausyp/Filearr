@@ -197,6 +197,29 @@ class TestRecognition(unittest.TestCase):
 
     @patch('backend.core.tmdb.tmdb.Search')
     @patch('backend.core.tmdb.config_service')
+    def test_numbered_list_prefix(self, mock_config, mock_search):
+        mock_config.get_setting.return_value = "fake_key"
+        def search(query, year=None):
+            if query == "Apocalypse Z New World":
+                return {'results': [movie(1, 'Apocalypse Z: New World', '2026-10-24', 'es')]}
+            if query == "Comrade Kalyan":
+                return {'results': [movie(2, 'Comrade Kalyan', '2026-09-12', 'ml')]}
+            return {'results': [movie(3, query, '2026-01-01', 'en')]}
+        mock_search.return_value.movie.side_effect = search
+        result = get_movie_metadata("1970 - Apocalypse.Z.New.World.2026.1080p.AMZN.WEB-DL.DUAL.DDP5..mkv")
+        self.assertEqual((result['title'], result['tmdb_id']), ('Apocalypse Z: New World', 1))
+        result = get_movie_metadata("1968 - Comrade.Kalyan.2026.Malayalam.1080p.AMZN.WEB-DL.DD+5.1.H.mkv")
+        self.assertEqual((result['title'], result['tmdb_id']), ('Comrade Kalyan', 2))
+
+    def test_numbered_prefix_kept_when_it_is_the_title(self):
+        from backend.core.safety import clean_filename
+        self.assertEqual(clean_filename("1917 - 2019 1080p.mkv"), "1917 - 2019 1080p.mkv")
+        self.assertEqual(clean_filename("1917.2019.1080p.mkv"), "1917.2019.1080p.mkv")
+        self.assertEqual(clean_filename("1986 - Malayalam.2024.mkv"), "1986 - Malayalam.2024.mkv")
+        self.assertEqual(clean_filename("1968 - Comrade.Kalyan.2026.mkv"), "Comrade.Kalyan.2026.mkv")
+
+    @patch('backend.core.tmdb.tmdb.Search')
+    @patch('backend.core.tmdb.config_service')
     def test_ott_release_year(self, mock_config, mock_search):
         """Kirkkan.2026 is the 2023 film's streaming release"""
         mock_config.get_setting.return_value = "fake_key"

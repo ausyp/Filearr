@@ -8,7 +8,7 @@ import unicodedata
 import os
 from functools import lru_cache
 
-from backend.core.safety import clean_filename, extract_filename_language
+from backend.core.safety import LANGUAGE_WORDS, clean_filename, extract_filename_language
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,6 @@ HOME_RELEASE_TYPES = {4, 5, 6}  # TMDB release types: digital, physical, TV
 # Filename language (safety.extract_filename_language) -> TMDB original_language
 TMDB_LANGUAGES = {"mal": "ml", "tam": "ta", "hin": "hi", "tel": "te", "eng": "en"}
 INDIAN_LANGUAGES = {"ml", "ta", "hi", "te", "kn", "bn", "mr", "pa", "gu"}
-LANGUAGE_WORDS = re.compile(r"(?i)\b(malayalam|tamil|telugu|hindi|kannada|english|multi audio|dual audio)\b")
 
 def normalize_title(title):
     """Lowercase, strip accents/punctuation, '&' -> 'and', drop a leading article."""
