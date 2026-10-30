@@ -215,6 +215,7 @@ class TestRecognition(unittest.TestCase):
         from backend.core.safety import clean_filename
         self.assertEqual(clean_filename("1917 - 2019 1080p.mkv"), "1917 - 2019 1080p.mkv")
         self.assertEqual(clean_filename("1917.2019.1080p.mkv"), "1917.2019.1080p.mkv")
+        self.assertEqual(clean_filename("1986 - Malayalam.2024.mkv"), "1986 - Malayalam.2024.mkv")
         self.assertEqual(clean_filename("1968 - Comrade.Kalyan.2026.mkv"), "Comrade.Kalyan.2026.mkv")
 
     @patch('backend.core.tmdb.tmdb.Search')

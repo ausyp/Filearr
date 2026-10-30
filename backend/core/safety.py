@@ -4,6 +4,7 @@ from guessit import guessit
 
 
 MIN_MOVIE_SIZE_BYTES = 300 * 1024 * 1024
+LANGUAGE_WORDS = re.compile(r"(?i)\b(malayalam|tamil|telugu|hindi|kannada|english|multi audio|dual audio)\b")
 
 
 def clean_filename(filename: str) -> str:
@@ -14,8 +15,11 @@ def clean_filename(filename: str) -> str:
     """
     text = re.sub(r"[\u00a0\u2000-\u200b\u202f\u3000]", " ", filename)
     text = text.lstrip("_. ")
-    # Only when a worded title follows, so "1917 - 2019 1080p" keeps its title
-    return re.sub(r"^\d{1,4}\s*-\s+(?=[^\W\d_])", "", text)
+    # Only when a worded title follows, so "1917 - 2019 1080p" and "1986 - Malayalam 2024" keep theirs
+    match = re.match(r"\d{1,4}\s*-\s+(?=[^\W\d_])", text)
+    if match and not LANGUAGE_WORDS.match(text, match.end()):
+        text = text[match.end():]
+    return text
 
 
 def extract_filename_language(filename: str):
